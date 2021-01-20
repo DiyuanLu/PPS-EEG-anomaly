@@ -23,7 +23,7 @@ def get_train_val_files(data_path, train_valid_split=True, train_percentage=0.8,
     :return:
     """
     animals = sorted([f for f in os.listdir(data_path)])[:]  # all animal IDs
-    train_files, valid_files = [], []
+    files_list, train_file_list, valid_file_list = [], [], []
     
     for animal in animals:
         animal_path = os.path.join(data_path, animal, animal)
@@ -32,32 +32,24 @@ def get_train_val_files(data_path, train_valid_split=True, train_percentage=0.8,
         BL_files = list(filter(lambda x: ".csv" in x, BL_files))
         np.random.shuffle(BL_files)
         picked_files = BL_files[0:min(len(BL_files), num2use)]
+        files_list.extend(picked_files)
         if train_valid_split:
-            train_files.extend(picked_files[
+            train_file_list.extend(picked_files[
                                       :round(len(picked_files) * train_percentage)])
-            valid_files.extend(picked_files[
+            valid_file_list.extend(picked_files[
                           round(len(picked_files) * train_percentage):])
             
     if train_valid_split:
-        return train_files, valid_files
+        np.random.shuffle(train_file_list)
+        np.random.shuffle(valid_file_list)
+        return train_file_list, valid_file_list
     else:
-        return BL_files
+        np.random.shuffle(files_list)
+        np.random.shuffle(valid_file_list)  # the valid list is empty
+        return files_list, valid_file_list  # the valid list is empty
         
-#
-#
-# def get_data_files(path, train_valid_split=True, train_percentage=0.8, num2use=15):
-#     files = sorted([path+f for f in listdir(path) if isfile(join(path, f))])
-#     files = list(filter(lambda x: ".csv" in x, files))
-#     np.random.shuffle(files)
-#     picked_files = files[0:min(len(files), num2use)]
-#     if train_valid_split:
-#         train_files = picked_files[:round(len(picked_files)*train_percentage)]
-#         valid_files = picked_files[round(len(picked_files)*train_percentage):]
-#         return train_files, valid_files
-#     else:
-#         return files
-
-def get_data_files_LOO(data_path, train_valid_split=True, train_percentage=0.9, num2use=15, if_LOO=False, LOO_ID=None):
+        
+def get_data_files_LOO(data_path, train_valid_split=True, train_percentage=0.9, num2use=15, LOO_ID=None):
     """
     Get both BL and EPG files
     :param data_path: str, data root dir
@@ -71,9 +63,9 @@ def get_data_files_LOO(data_path, train_valid_split=True, train_percentage=0.9, 
     :return:
     """
     animals = sorted([f for f in listdir(data_path)])
-    if if_LOO:
-        assert LOO_ID is not None, "You have to put in the LOO animal ID" # if LOO_ID is not None
-        animals.remove(LOO_ID)  # Leave out one animal
+
+    assert LOO_ID is not None, "You have to put in the LOO animal ID" # if LOO_ID is not None
+    animals.remove(LOO_ID)  # Leave out one animal
         
     files_list, train_file_list, valid_file_list = [], [], []
     for animal in animals:
@@ -90,8 +82,12 @@ def get_data_files_LOO(data_path, train_valid_split=True, train_percentage=0.9, 
             valid_file_list.extend(picked_files[round(len(picked_files)*train_percentage):])
         
     if train_valid_split:
+        np.random.shuffle(train_file_list)
+        np.random.shuffle(valid_file_list)
         return train_file_list, valid_file_list
     else:
+        np.random.shuffle(files_list)
+        np.random.shuffle(valid_file_list)  # the valid list is empty
         return files_list, valid_file_list  # the valid list is empty
 
 def compute_data_parameters(files, dims=2560):
@@ -118,20 +114,34 @@ def compute_data_parameters(files, dims=2560):
 def read(line):
     n_inputs = 2561
     defs = [tf.constant([], dtype=tf.string)]+ [0.]*n_inputs
-    fields = tf.io.decode_csv(line, record_defaults=defs)[2:]
+    fields = tf.io.decode_csv(line, record_defaults=defs)[2:]  #exclude filename and label
     x = tf.stack(fields)
     x = tf.expand_dims(x,1)
     return x
 
-def csv_reader_dataset(filepaths, mean=0, std=0, n_readers=5,
+
+def reshape_to_k_sec(feature, n_sec=5, sr=512):
+    """
+    Reshape the features to required length
+    :param feature: 3d array
+    :param n_sec: int, num of sec to use a sone sample. TODO: deal with random len, 2s or 3s
+    :return:new_feature; 3d a
+    """
+    n_new_segments = feature.shape[0]//(n_sec*sr)
+    new_feature = tf.reshape(feature, [n_new_segments, n_sec*sr, 1])
+    return new_feature
+    
+
+def csv_reader_dataset(filepaths, n_readers=5,
                        n_read_threads=None, shuffle_buffer_size=10000,
                        n_parse_threads=tf.data.experimental.AUTOTUNE,
-                       batch_size=32, shuffle=True):
-
+                       batch_size=32, shuffle=True, n_sec_per_sample=1):
+    n_row_per_file = 720
     dataset = tf.data.Dataset.list_files(filepaths, shuffle=shuffle)
+    shuffle_buffer_size = min(len(filepaths) * n_row_per_file, 10000)
     if shuffle:
         dataset = dataset.interleave(
-            lambda filepath: tf.data.TextLineDataset(filepath).skip(1), 
+            lambda filepath: tf.data.TextLineDataset(filepath).skip(1), # why skip 1?
             cycle_length=n_readers, 
             num_parallel_calls=n_read_threads)
         dataset = dataset.shuffle(shuffle_buffer_size)
@@ -139,7 +149,12 @@ def csv_reader_dataset(filepaths, mean=0, std=0, n_readers=5,
         dataset = tf.data.TextLineDataset(dataset)
     dataset = dataset.map(read, num_parallel_calls=n_parse_threads)
     # dataset = dataset.map(lambda x: (x-mean) / (std + np.finfo(np.float32).eps), num_parallel_calls=n_parse_threads)
-    dataset = dataset.map(lambda x: (x-tf.reduce_mean(x)) / (tf.math.reduce_std(x) + np.finfo(np.float32).eps), num_parallel_calls=n_parse_threads)
+    dataset = dataset.map(lambda x: (x-tf.reduce_mean(x, axis=1)) / (tf.math.reduce_std(x, axis=1) + np.finfo(np.float32).eps), num_parallel_calls=n_parse_threads)
+
+    # problem with parallel dataset to reshape
+    # dataset = dataset.map(lambda feature: reshape_to_k_sec(feature, n_sec=n_sec_per_sample))  #reshape the sample to required length
+    
+    
     # dataset = dataset.map(lambda x: (x-tf.reduce_min(x)) / (tf.reduce_max(x) - tf.reduce_min(x)), num_parallel_calls=n_parse_threads)
     # dataset = dataset.map(lambda x: (x,x) , num_parallel_calls=n_parse_threads)
     
@@ -213,14 +228,14 @@ def create_dataset(filenames_w_lb, args, batch_size=32, if_shuffle=True,
         :param args: Param object, contains hyperparams
         :return: transformed dataset with the label of the file assigned to each batch of data from the file
         """
-        skip = 0
-
+        
+        # three functions used for parsing each line
         def decode_label_fn(features, label, filename, assign_label=0):
             """
             Modify the label for each sample given different data_mode. E.g., EPG by default is 1, but i EPG_id mode,
             """
             return features, assign_label, filename
-
+        
         def decode_csv(line, args=None):
             # Map function to decode the .csv file in TextLineDataset
             # @param line object in TextLineDataset
@@ -228,13 +243,13 @@ def create_dataset(filenames_w_lb, args, batch_size=32, if_shuffle=True,
             defaults = [['']] + [[0.0]] * (
                         args.sr * args.secs_per_row + 1)  # there are 5 sec in one row
             csv_row = tf.compat.v1.decode_csv(line, record_defaults=defaults)
-    
+        
             filename = tf.cast(csv_row[0], tf.string)
             label = tf.cast(csv_row[1], tf.int32)  # given the label
             features = tf.cast(tf.stack(csv_row[2:]), tf.float32)
-    
+        
             return features, label, filename
-
+        
         def scale_to_zscore(data, label, filename):
             """
             zscore normalize the features
@@ -247,8 +262,10 @@ def create_dataset(filenames_w_lb, args, batch_size=32, if_shuffle=True,
             mean = tf.reduce_mean(data)
             std = tf.compat.v1.math.reduce_std(data)
             zscore = (data - mean) / (std + 1e-13)
-    
+        
             return zscore, label, filename
+
+        skip = 0
     
         decode_ds = tf.compat.v1.data.TextLineDataset(filename).skip(skip).map(
             lambda line: decode_csv(line, args=args))
@@ -310,29 +327,15 @@ def creat_data_tensors(dataset, data_tensors, filenames_w_lb, args, batch_size=3
     batch_ds = iter.get_next()  # test contains features and label
     data_tensors["{}_iter_init".format(prefix)] = iter.initializer
     
-    if args.if_spectrum:
-        data_tensors["{}_features".format(prefix)] = batch_ds[
-            0]  # shape=[bs, num_seg, time_bins, freq_bins]
-        args.height = batch_ds[0][0].get_shape().as_list()[
-            2]  # [bs, 1, time_bins, 129]
-        args.width = batch_ds[0][0].get_shape().as_list()[3]
-    else:
-        data_tensors["{}_features".format(prefix)] = tf.reshape(batch_ds[0][0],
+    data_tensors["{}_features".format(prefix)] = tf.reshape(batch_ds[0][0],
                                                                 [-1,
                                                                  args.sr * args.secs_per_samp])
     
-    if args.class_mode == "regression":
-        data_tensors["{}_labels".format(prefix)] = tf.cast(
-            tf.repeat(batch_ds[0][1],
-                      repeats=args.secs_per_row // args.secs_per_samp, axis=0),
-            dtype=tf.float32)
-    else:
-        # labels = tf.repeat(batch_ds[0][1], repeats=args.secs_per_row//args.secs_per_samp, axis=0)
-        data_tensors["{}_labels".format(prefix)] = tf.one_hot(
-            tf.repeat(batch_ds[0][1],
-                      repeats=args.secs_per_row // args.secs_per_samp, axis=0),
-            args.num_classes,
-            dtype=tf.int32)
+    data_tensors["{}_labels".format(prefix)] = tf.one_hot(
+        tf.repeat(batch_ds[0][1],
+                  repeats=args.secs_per_row // args.secs_per_samp, axis=0),
+        args.num_classes,
+        dtype=tf.int32)
     # data_tensors["{}_filenames".format(prefix)] = tf.cast(batch_ds[0][2], dtype=tf.string)
     # data_tensors["{}_ids".format(prefix)] = tf.cast(batch_ds[1], dtype=tf.string)
     data_tensors["{}_filenames".format(prefix)] = tf.cast(
@@ -357,7 +360,7 @@ def get_data_tensors(args, if_shuffle_train=True, if_shuffle_test=True,
     :param args: contrain hyperparams
     :return: train_data: dict, contains 'features', 'labels'
     :return: test_data, dict, contains 'features', 'labels'
-    :return: num_samples, dict, contains 'num_train', 'num_test'
+    :return: num_samples, dict, contains 'n_train', 'n_test'
     """
     data_tensors = {}
     

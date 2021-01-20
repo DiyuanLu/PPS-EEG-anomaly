@@ -5,7 +5,7 @@ import time
 
 import pdb
 import numpy as np
-# from utils import predict_validation_samples, plot_samples, plot_latent_space, sample_data
+from utils import predict_validation_samples, plot_samples, plot_latent_space, sample_data
 
 random_seed = 42
 tf.compat.v1.random.set_random_seed(random_seed)
@@ -442,6 +442,10 @@ class AAE(tf.keras.Model):
                                      
 
         return metrics
+    
+    def clear_model(self):
+        """clear current session. Reinitialize a new model"""
+        tf.keras.backend.clear_session()
 
 
 
