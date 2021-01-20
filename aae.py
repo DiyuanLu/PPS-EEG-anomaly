@@ -1,14 +1,14 @@
 
 import tensorflow as tf
 import time
-tf.enable_eager_execution()
+# tf.enable_eager_execution()
 
 import pdb
 import numpy as np
-from utils import predict_validation_samples, plot_samples, plot_latent_space, sample_data
+# from utils import predict_validation_samples, plot_samples, plot_latent_space, sample_data
 
 random_seed = 42
-tf.random.set_random_seed(random_seed)
+tf.compat.v1.random.set_random_seed(random_seed)
 np.random.seed(random_seed)
 
 class AAE(tf.keras.Model):
