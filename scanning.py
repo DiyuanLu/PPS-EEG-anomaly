@@ -1,12 +1,9 @@
-from input_pipeline import csv_reader_dataset, get_data_files, get_all_data_files
+from input_pipeline import csv_reader_dataset, get_train_val_files, get_data_files_LOO
 from utils import get_run_logdir
 import numpy as np
 import tensorflow as tf
 tf.enable_eager_execution()
-# import matplotlib.pyplot as plt
-import matplotlib
-# matplotlib.use('TkAgg')
-# matplotlib.use('Agg')
+
 import itertools
 import os
 import scipy

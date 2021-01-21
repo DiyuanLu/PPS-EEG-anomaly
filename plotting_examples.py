@@ -1,10 +1,8 @@
-from input_pipeline import csv_reader_dataset, get_data_files, get_all_data_files
+from input_pipeline import csv_reader_dataset, get_train_val_files, get_data_files_LOO
 from utils import get_run_logdir
 import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
-# import matplotlib
-# matplotlib.use('Agg')
 import itertools
 import os
 import scipy
@@ -12,10 +10,6 @@ import math
 import seaborn as sns
 sns.set(style="whitegrid")
 import pandas as pd
-
-random_seed = 42
-tf.random.set_random_seed(random_seed)
-np.random.seed(random_seed)
 
 
 def plotting(batch, folder, counter, error_value):

@@ -1,10 +1,8 @@
-from input_pipeline import csv_reader_dataset, get_data_files, get_all_data_files
+from input_pipeline import csv_reader_dataset, get_train_val_files, get_data_files_LOO
 from utils import get_run_logdir, KnuthMorrisPratt
 import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
-# import matplotlib
-# matplotlib.use('Agg')
 import itertools
 import os
 import scipy
@@ -14,10 +12,6 @@ sns.set(style="whitegrid")
 import pandas as pd
 from sklearn import metrics
 
-
-random_seed = 42
-tf.random.set_random_seed(random_seed)
-np.random.seed(random_seed)
 
 def compute_no_sequences(whole_errors, th99, window = 60, sequence=[1,1,1]):
     random_start = np.random.randint(0,len(whole_errors)-window*12)

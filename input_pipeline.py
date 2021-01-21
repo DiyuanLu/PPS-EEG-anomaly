@@ -136,7 +136,7 @@ def csv_reader_dataset(filepaths, n_readers=5,
     dataset = dataset.map(read, num_parallel_calls=n_parse_threads)
     # dataset = dataset.map(lambda x: (x-mean) / (std + np.finfo(np.float32).eps), num_parallel_calls=n_parse_threads)
     dataset = dataset.map(lambda x: (x-tf.reduce_mean(x)) / (tf.math.reduce_std(x) + np.finfo(np.float32).eps), num_parallel_calls=n_parse_threads)
-    
+
     # reshape the sample to 1 second
     def reshape_to_k_sec(feature, n_sec=1, sr=512):
         return tf.reshape(feature[:(5//n_sec)*n_sec*sr], (5//n_sec, n_sec*sr))  # flexible to the number of sec per sample

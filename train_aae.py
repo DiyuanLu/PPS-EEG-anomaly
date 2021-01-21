@@ -1,11 +1,12 @@
-
-from input_pipeline import csv_reader_dataset, get_train_val_files, get_data_files_LOO
-from utils import get_run_logdir, plot_dict_loss
+import matplotlib
+matplotlib.use('Agg')
 import numpy as np
-from aae import AAE
 import os
 import pickle
 
+from aae import AAE
+from input_pipeline import csv_reader_dataset, get_train_val_files, get_data_files_LOO
+from utils import get_run_logdir, plot_dict_loss
 
 LOO = True # False
 data_path = "C:/Users/LDY/Desktop/EPG/EPG_data/data/3d/PPS"  #/home/epilepsy-data/data/PPS-rats-from-Sebastian/PPS-Rats" #'/home/farahat/Documents/data/'
