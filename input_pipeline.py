@@ -14,8 +14,14 @@ np.random.seed(random_seed)
 
 
 # list the files
-
 def get_data_files(path, train_valid_split=True, train_percentage=0.8):
+    """
+    Get files belong to one rat given the path
+    :param path:
+    :param train_valid_split:
+    :param train_percentage:
+    :return:
+    """
     files = sorted([path+f for f in listdir(path) if isfile(join(path, f))])
     if train_valid_split:
         train_files = files[:round(len(files)*train_percentage)]
@@ -25,6 +31,14 @@ def get_data_files(path, train_valid_split=True, train_percentage=0.8):
         return files
 
 def get_all_data_files(data_path, test_animal, train_valid_split=True, train_percentage=0.9):
+    """
+    Get LOO data from the rest of the animals
+    :param data_path: str
+    :param test_animal: str
+    :param train_valid_split:
+    :param train_percentage:
+    :return:
+    """
     animals = sorted([f for f in listdir(data_path)])
     animals.remove(test_animal)
     files = []
@@ -38,8 +52,6 @@ def get_all_data_files(data_path, test_animal, train_valid_split=True, train_per
         return train_files, valid_files
     else:
         return files
-
-
 
 
 def compute_data_parameters(files, dims=2560):
