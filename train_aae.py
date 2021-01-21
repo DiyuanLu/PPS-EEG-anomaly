@@ -25,6 +25,7 @@ n_files2use = 5
 
 
 for LOO_animal in LOO_animals:
+    run_logdir = get_run_logdir(root_logdir, LOO_animal)
     train_files, valid_files = [], []
     if_LOO_ctrl = True if "326" in LOO_animal else False
     if LOO:
@@ -41,16 +42,21 @@ for LOO_animal in LOO_animals:
                                                                 LOO_ID=LOO_animal,
                                                                 if_LOO_ctrl=if_LOO_ctrl,
                                                                 current_folder="Ctrl")
+        train_files.extend(PPS_train_files)
+        train_files.extend(Ctrl_train_files)
+        valid_files.extend(PPS_valid_files)
+        valid_files.extend(Ctrl_valid_files)
     else:
         train_files, valid_files = get_train_val_files(PPS_data_path, train_valid_split=True, train_percentage=0.8, num2use=n_files2use)
     # here always have valid_set, so the output of previous function should always have train and valid lists
+    np.savetxt(os.path.join(run_logdir, "picked_train_files_{}.csv".format(len(train_files))), np.array(train_files), fmt="%s", delimiter=",")
+    np.savetxt(os.path.join(run_logdir, "picked_val_files_{}.csv".format(len(valid_files))), np.array(valid_files), fmt="%s", delimiter=",")
     train_set = csv_reader_dataset(train_files, batch_size=batch_size, n_sec_per_sample=n_sec_per_sample,
                            sr=sampling_rate)
     valid_set = csv_reader_dataset(valid_files, batch_size=batch_size, n_sec_per_sample=n_sec_per_sample,
                            sr=sampling_rate)
     
     train_set = train_set.take(150)   # what does this do?
-    run_logdir = get_run_logdir(root_logdir, LOO_animal)
     
     # the model should be trained with the data from all rats at the same time. Not one after another.
     model = AAE(input_size, h_dim, z_dim, run_logdir)
