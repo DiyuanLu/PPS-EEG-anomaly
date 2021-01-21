@@ -439,8 +439,6 @@ class AAE(tf.keras.Model):
                 if wait >= self.es_patience:
                     return metrics
 
-                                     
-
         return metrics
 
 

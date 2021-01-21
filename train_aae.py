@@ -18,6 +18,7 @@ n_epochs=100
 batch_size = 256
 LOO_animals = ["1275", "1276", "32140", "32141"]
 
+#
 for LOO_animal in LOO_animals:
     if LOO:
         train_files, valid_files = get_data_files_LOO(data_path, train_valid_split=True,
