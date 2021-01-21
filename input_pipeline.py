@@ -1,6 +1,6 @@
 
 import tensorflow as tf
-tf.enable_eager_execution()
+# tf.enable_eager_execution()
 import numpy as np
 import pandas as pd
 from os import listdir
@@ -88,6 +88,6 @@ def csv_reader_dataset(filepaths, mean=0, std=0, n_readers=5, n_read_threads=Non
     dataset = dataset.map(lambda x: (x-tf.reduce_mean(x)) / (tf.math.reduce_std(x) + np.finfo(np.float32).eps), num_parallel_calls=n_parse_threads)
     # dataset = dataset.map(lambda x: (x-tf.reduce_min(x)) / (tf.reduce_max(x) - tf.reduce_min(x)), num_parallel_calls=n_parse_threads)
     # dataset = dataset.map(lambda x: (x,x) , num_parallel_calls=n_parse_threads)
-    
+
     dataset = dataset.batch(batch_size, drop_remainder=False)
     return dataset.prefetch(1)
