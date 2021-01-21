@@ -1,6 +1,4 @@
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt 
+import matplotlib.pyplot as plt
 import os
 import pdb
 import time

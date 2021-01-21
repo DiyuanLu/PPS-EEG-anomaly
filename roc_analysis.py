@@ -3,8 +3,8 @@ from utils import get_run_logdir, KnuthMorrisPratt
 import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
-import matplotlib
-matplotlib.use('Agg')
+# import matplotlib
+# matplotlib.use('Agg')
 import itertools
 import os
 import scipy

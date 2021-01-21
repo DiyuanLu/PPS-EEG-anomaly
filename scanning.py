@@ -3,10 +3,10 @@ from utils import get_run_logdir
 import numpy as np
 import tensorflow as tf
 tf.enable_eager_execution()
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 import matplotlib
 # matplotlib.use('TkAgg')
-matplotlib.use('Agg')
+# matplotlib.use('Agg')
 import itertools
 import os
 import scipy

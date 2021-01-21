@@ -10,9 +10,8 @@ import pdb
 import os
 
 random_seed = 42
-tf.compat.v1.random.set_random_seed(random_seed)
+tf.compat.v1.set_random_seed(random_seed)
 np.random.seed(random_seed)
-
 
 # list the files
 def get_train_val_files(data_path, train_valid_split=True, train_percentage=0.8, num2use=15):
@@ -119,19 +118,6 @@ def read(line):
     x = tf.expand_dims(x,1)
     return x
 
-
-def reshape_to_k_sec(feature, n_sec=5, sr=512):
-    """
-    Reshape the features to required length
-    :param feature: 3d array
-    :param n_sec: int, num of sec to use a sone sample. TODO: deal with random len, 2s or 3s
-    :return:new_feature; 3d a
-    """
-    n_new_segments = feature.shape[0]//(n_sec*sr)
-    new_feature = tf.reshape(feature, [n_new_segments, n_sec*sr, 1])
-    return new_feature
-    
-
 def csv_reader_dataset(filepaths, n_readers=5,
                        n_read_threads=None, shuffle_buffer_size=10000,
                        n_parse_threads=tf.data.experimental.AUTOTUNE,
@@ -142,24 +128,25 @@ def csv_reader_dataset(filepaths, n_readers=5,
     if shuffle:
         dataset = dataset.interleave(
             lambda filepath: tf.data.TextLineDataset(filepath).skip(1), # why skip 1?
-            cycle_length=n_readers, 
+            cycle_length=n_readers,
             num_parallel_calls=n_read_threads)
         dataset = dataset.shuffle(shuffle_buffer_size)
     else:
         dataset = tf.data.TextLineDataset(dataset)
     dataset = dataset.map(read, num_parallel_calls=n_parse_threads)
     # dataset = dataset.map(lambda x: (x-mean) / (std + np.finfo(np.float32).eps), num_parallel_calls=n_parse_threads)
-    dataset = dataset.map(lambda x: (x-tf.reduce_mean(x, axis=1)) / (tf.math.reduce_std(x, axis=1) + np.finfo(np.float32).eps), num_parallel_calls=n_parse_threads)
-
-    # problem with parallel dataset to reshape
-    # dataset = dataset.map(lambda feature: reshape_to_k_sec(feature, n_sec=n_sec_per_sample))  #reshape the sample to required length
+    dataset = dataset.map(lambda x: (x-tf.reduce_mean(x)) / (tf.math.reduce_std(x) + np.finfo(np.float32).eps), num_parallel_calls=n_parse_threads)
     
+    # reshape the sample to 1 second
+    def reshape_to_k_sec(feature, n_sec=1, sr=512):
+        return tf.reshape(feature[:(5//n_sec)*n_sec*sr], (5//n_sec, n_sec*sr))  # flexible to the number of sec per sample
     
-    # dataset = dataset.map(lambda x: (x-tf.reduce_min(x)) / (tf.reduce_max(x) - tf.reduce_min(x)), num_parallel_calls=n_parse_threads)
+    dataset = dataset.map(map_func=lambda x: reshape_to_k_sec(x, n_sec=1, sr=512), num_parallel_calls=n_parse_threads)
+    dataset = dataset.flat_map(lambda x: tf.data.Dataset.from_tensor_slices(x))
     # dataset = dataset.map(lambda x: (x,x) , num_parallel_calls=n_parse_threads)
     
     dataset = dataset.batch(batch_size, drop_remainder=False)
-    return dataset.prefetch(1)
+    return dataset.prefetch(2)
 
 
 ################## Lu Data input pipeline ##########################

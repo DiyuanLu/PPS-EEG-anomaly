@@ -43,7 +43,6 @@ for LOO_animal in LOO_animals:
         pickle.dump(metrics, handle)
     plot_dict_loss(metrics, run_logdir)
     model.save()
-    
     model.clear_model()
     
     
