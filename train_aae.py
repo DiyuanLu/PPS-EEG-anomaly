@@ -9,8 +9,12 @@ from input_pipeline import csv_reader_dataset, get_train_val_files, get_data_fil
 from utils import get_run_logdir, plot_dict_loss
 
 LOO = True # False
-PPS_data_path = "C:/Users/LDY/Desktop/EPG/EPG_data/data/3d/PPS"  #/home/epilepsy-data/data/PPS-rats-from-Sebastian/PPS-Rats" #'/home/farahat/Documents/data/'
-Ctrl_data_path = "C:/Users/LDY/Desktop/EPG/EPG_data/data/3d/control"  #/home/epilepsy-data/data/PPS-rats-from-Sebastian/PPS-Rats" #'/home/farahat/Documents/data/'
+PPS_data_path = "/home/epilepsy-data/data/PPS-rats-from-Sebastian/PPS-Rats"
+#"C:/Users/LDY/Desktop/EPG/EPG_data/data/3d/PPS"
+# #/home/epilepsy-data/data/PPS-rats-from-Sebastian/PPS-Rats" #'/home/farahat/Documents/data/'
+Ctrl_data_path = "/home/epilepsy-data/data/PPS-rats-from-Sebastian/Control-Rats"
+#"C:/Users/LDY/Desktop/EPG/EPG_data/data/3d/control"
+# #/home/epilepsy-data/data/PPS-rats-from-Sebastian/PPS-Rats" #'/home/farahat/Documents/data/'
 root_logdir = "C:/Users/LDY/Desktop/EPG/EPG_data/results" #'/home/farahat/Documents/my_logs'
 #"/home/epilepsy-data/data/PPS-rats-from-Sebastian/resultsl-7rats"
 n_sec_per_sample = 1
