@@ -51,12 +51,13 @@ class AAE(tf.keras.Model):
         self.dc_loss_weight = 1.0
                 
         self.encoder = self.make_encoder_model()
-        self.decoder = self.make_decoder_model()
+        self.decoder = self.cnn_decoder()
+        # self.decoder = self.make_decoder_model()
         self.discriminator_z = self.make_discriminator_z_model()
         self.discriminator_x = self.make_discriminator_x_model()
 
     def make_encoder_model(self):
-        input = tf.keras.layers.Input(shape=(self.input_size,1))
+        input = tf.keras.layers.Input(shape=(self.input_size, 1))
 
         conv1 = tf.keras.layers.Conv1D(16, self.kernel_size, strides=2, padding='same', dilation_rate=1)(input)
         conv1 = tf.keras.layers.BatchNormalization()(conv1)
@@ -98,15 +99,63 @@ class AAE(tf.keras.Model):
         # conv5 = tf.keras.layers.Conv1D(256, self.kernel_size, strides=2, padding='same', dilation_rate=1)(conv5)
         # conv5 = tf.keras.layers.BatchNormalization()(conv5)
         # conv5 = tf.keras.layers.ReLU()(conv5)
-
-        code = tf.keras.layers.Conv1D(1,1, activation='linear')(conv5)
-        code = tf.keras.layers.BatchNormalization()(code)
+        
+        self.encoder_b4_flatten = conv5.get_shape().as_list()[1:] # first one is None, batch size
+        conv5_flatten = tf.keras.layers.Flatten()(conv5)
+        code = tf.keras.layers.Dense(self.z_dim)(conv5_flatten)
+        
+        # Problem is that, the dimension happens to be the shape after all the convolution
+        # code = tf.keras.layers.Conv1D(1,1, activation='linear')(conv5)
+        # code = tf.keras.layers.BatchNormalization()(code)
 
         model = tf.keras.Model(inputs=input, outputs=code)
-        return model 
+        print('Encoder : ')
+        print(model.summary(line_length=50))
+        
+        return model
+
+    def cnn_decoder(self):
+        encoded = tf.keras.Input(shape=(self.z_dim, 1))
+        reshape_encoded = tf.keras.layers.Flatten()(encoded)
+        net = tf.keras.layers.Dense(np.prod(self.encoder_b4_flatten))(reshape_encoded)  #the first dimension is -1 for batch size expand_to_match_encode convolution
+        conv2d_shape = np.insert(self.encoder_b4_flatten, 1, 1)
+        net =  tf.keras.layers.Reshape(conv2d_shape)(net)
+        net = tf.keras.layers.Conv2DTranspose(128, (self.kernel_size,1), strides=(2,1),  padding='same', dilation_rate=1)(net)
+
+        net = tf.keras.layers.BatchNormalization()(net)
+        net = tf.keras.layers.ReLU()(net)
+        
+
+        net = tf.keras.layers.Conv2DTranspose(64, (self.kernel_size,1), strides=(2,1),  padding='same', dilation_rate=1)(net)
+        net = tf.keras.layers.BatchNormalization()(net)
+        net = tf.keras.layers.ReLU()(net)
+        
+
+        net = tf.keras.layers.Conv2DTranspose(32, (self.kernel_size,1), strides=(2,1),  padding='same', dilation_rate=1)(net)
+        net = tf.keras.layers.BatchNormalization()(net)
+        net = tf.keras.layers.ReLU()(net)
+        
+
+        net = tf.keras.layers.Conv2DTranspose(16, (self.kernel_size,1), strides=(2,1),  padding='same', dilation_rate=1)(net)
+        net = tf.keras.layers.BatchNormalization()(net)
+        net = tf.keras.layers.ReLU()(net)
+        
+        upsampled_tmp = tf.compat.v1.image.resize_images(net, size=[
+            self.input_size + self.kernel_size - 1, 1])
+        decoded = tf.keras.layers.Conv2D(1, (self.kernel_size,1), activation=None)(upsampled_tmp)
+        decoded = tf.keras.layers.BatchNormalization()(decoded)
+        decoded = tf.keras.layers.ReLU()(decoded)
+        decoded = tf.keras.layers.Reshape((self.input_size, 1))(decoded)
+        
+        model = tf.keras.Model(inputs=encoded, outputs=decoded)
+        print('Decoder : ')
+        print(model.summary(line_length=50))
+    
+        return model
+    
     
     def make_decoder_model(self):
-        encoded = tf.keras.Input(shape=(self.z_dim,1))
+        encoded = tf.keras.Input(shape=(self.z_dim, 1))
         reshaped_input = tf.keras.layers.Reshape((self.z_dim,1,1))(encoded)
 
         # deconv1 = tf.keras.layers.Conv2D(256, (self.kernel_size,1), strides=1,  padding='same', dilation_rate=1)(reshaped_input)
@@ -147,14 +196,15 @@ class AAE(tf.keras.Model):
 
         deconv5 = tf.keras.layers.Conv2DTranspose(16, (self.kernel_size,1), strides=(2,1),  padding='same', dilation_rate=1)(deconv4)
         deconv5 = tf.keras.layers.BatchNormalization()(deconv5)
-        deconv5 = tf.keras.layers.ReLU()(deconv5)     
+        deconv5 = tf.keras.layers.ReLU()(deconv5)
 
         decoded = tf.keras.layers.Conv2DTranspose(1, 1, padding='same', activation='linear', dilation_rate=1)(deconv5)
         decoded = tf.keras.layers.Reshape((self.input_size,1))(decoded)
 
-
-
         model = tf.keras.Model(inputs=encoded, outputs=decoded)
+       
+        print('Decoder : ')
+        print(model.summary(line_length=50))
         return model
 
     def make_discriminator_x_model(self):
@@ -195,6 +245,10 @@ class AAE(tf.keras.Model):
         prediction = tf.keras.layers.Dense(1)(flat)
 
         model = tf.keras.Model(inputs=input, outputs=[prediction, flat])
+        
+        print('Discriminator X : ')
+        print(model.summary(line_length=50))
+        
         return model
 
     def make_discriminator_z_model(self):
@@ -208,6 +262,9 @@ class AAE(tf.keras.Model):
         x = tf.keras.layers.LeakyReLU(alpha=0.2)(x)
         prediction = tf.keras.layers.Dense(1)(x)
         model = tf.keras.Model(inputs=encoded, outputs=[prediction, x])
+
+        print('Discriminator Z : ')
+        print(model.summary(line_length=50))
         return model
 
 
@@ -271,7 +328,7 @@ class AAE(tf.keras.Model):
 
             weights = np.ones(len(self.norm_params), dtype=np.float64) / len(self.norm_params)
             mixture_idx = np.random.choice(len(weights), size=batch_x.shape[0], replace=True, p=weights)
-            real_distribution = tf.convert_to_tensor([np.random.normal(self.norm_params[idx], self.std, size=(self.z_dim,1)) for idx in mixture_idx], dtype=tf.float32)
+            real_distribution = tf.convert_to_tensor([np.random.normal(self.norm_params[idx], self.std, size=(self.z_dim,)) for idx in mixture_idx], dtype=tf.float32)
 
             # real_distribution = tf.random.normal([tf.cast(batch_x.shape[0], dtype=tf.int32), self.z_dim, 1], mean=0.0, stddev=1.0)
             generator_output = self.decoder(real_distribution, training=True)

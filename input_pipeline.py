@@ -13,12 +13,56 @@ random_seed = 42
 tf.compat.v1.set_random_seed(random_seed)
 np.random.seed(random_seed)
 
+
 # list the files
-def get_train_val_files(data_path, train_valid_split=True, train_percentage=0.8, num2use=15):
+def get_data_files_from_folder(path, train_valid_split=True, train_percentage=0.8):
     """
-    Get all training and val file names
+    Get files belong to one rat given the path
+    :param path:
+    :param train_valid_split:
+    :param train_percentage:
+    :return:
+    """
+    files = sorted([path+f for f in listdir(path) if isfile(join(path, f))])
+    if train_valid_split:
+        train_files = files[:round(len(files)*train_percentage)]
+        valid_files = files[round(len(files)*train_percentage):]
+        return train_files, valid_files
+    else:
+        return files
+
+def get_all_data_files(data_path, test_animal, train_valid_split=True, train_percentage=0.9):
+    """
+    Get LOO data from the rest of the animals
+    :param data_path: str
+    :param test_animal: str
+    :param train_valid_split:
+    :param train_percentage:
+    :return:
+    """
+    animals = sorted([f for f in listdir(data_path)])
+    animals.remove(test_animal)
+    files = []
+    for animal in animals:
+        animal_path = data_path + animal
+        files.extend(sorted([animal_path+'/BL/'+f for f in listdir(animal_path+'/BL/')]))
+    if train_valid_split:
+        random.shuffle(files)
+        train_files = files[:round(len(files)*train_percentage)]
+        valid_files = files[round(len(files)*train_percentage):]
+        return train_files, valid_files
+    else:
+        return files
+
+
+# list the files
+def get_train_val_files(data_path, train_valid_split=True, train_percentage=0.8, num2use=None):
+    """
+    Get files from all animals
     :param data_path:
-    :param if_LOO:
+    :param train_valid_split:
+    :param train_percentage:
+    :param num2use:
     :return:
     """
     animals = sorted([f for f in os.listdir(data_path)])[:]  # all animal IDs
@@ -30,6 +74,8 @@ def get_train_val_files(data_path, train_valid_split=True, train_percentage=0.8,
         BL_files = sorted([BL_path + f for f in listdir(BL_path) if isfile(join(BL_path, f))])
         BL_files = list(filter(lambda x: ".csv" in x, BL_files))
         np.random.shuffle(BL_files)
+
+        num2use = len(BL_files) if not num2use else num2use  # when num2use is None, then take all files from this animal
         picked_files = BL_files[0:min(len(BL_files), num2use)]
         files_list.extend(picked_files)
         if train_valid_split:
@@ -44,11 +90,10 @@ def get_train_val_files(data_path, train_valid_split=True, train_percentage=0.8,
         return train_file_list, valid_file_list
     else:
         np.random.shuffle(files_list)
-        np.random.shuffle(valid_file_list)  # the valid list is empty
-        return files_list, valid_file_list  # the valid list is empty
+        return files_list  # the valid list is empty
         
         
-def get_data_files_LOO(data_path, train_valid_split=True, train_percentage=0.9, num2use=15, LOO_ID=None):
+def get_data_files_LOO(data_path, train_valid_split=True, train_percentage=0.9, num2use=None, LOO_ID=None):
     """
     Get both BL and EPG files
     :param data_path: str, data root dir
@@ -58,21 +103,22 @@ def get_data_files_LOO(data_path, train_valid_split=True, train_percentage=0.9, 
     :param train_percentage: percentage of training files
     :param if_LOO: bool, whether remove the LOO rat ID
     :param LOO_ID: str, test animal id
-    :param num2use: int, number of files to randomly pick for training and validation
+    :param num2use: int, None when take all files. number of files to randomly pick for training and validation
     :return:
     """
     animals = sorted([f for f in listdir(data_path)])
-
     assert LOO_ID is not None, "You have to put in the LOO animal ID" # if LOO_ID is not None
     animals.remove(LOO_ID)  # Leave out one animal
         
     files_list, train_file_list, valid_file_list = [], [], []
     for animal in animals:
         animal_path = os.path.join(data_path, animal, animal)
-        all_animal_files = sorted([os.path.join(animal_path, 'BL', f) for f in listdir(os.path.join(animal_path, 'BL'))])
-        all_animal_files = list(filter(lambda x: ".csv" in x, all_animal_files))  # get only .csv files
-        np.random.shuffle(all_animal_files)
-        picked_files = all_animal_files[0:min(len(all_animal_files), num2use)]  # randomly pick a certai number of hours
+        files_of_this_animal = sorted([os.path.join(animal_path, 'BL', f) for f in listdir(os.path.join(animal_path, 'BL'))])
+        files_of_this_animal = list(filter(lambda x: ".csv" in x, files_of_this_animal))  # get only .csv files
+        np.random.shuffle(files_of_this_animal)
+        
+        num2use = len(files_of_this_animal) if not num2use else num2use   # when num2use is None, then take all files from this animal
+        picked_files = files_of_this_animal[0:min(len(files_of_this_animal), num2use)]  # randomly pick a certai number of hours
         files_list.extend(picked_files)
     
         if train_valid_split:
@@ -86,8 +132,7 @@ def get_data_files_LOO(data_path, train_valid_split=True, train_percentage=0.9, 
         return train_file_list, valid_file_list
     else:
         np.random.shuffle(files_list)
-        np.random.shuffle(valid_file_list)  # the valid list is empty
-        return files_list, valid_file_list  # the valid list is empty
+        return files_list  # the valid list is empty
 
 def compute_data_parameters(files, dims=2560):
 
@@ -107,21 +152,21 @@ def compute_data_parameters(files, dims=2560):
 
     return mean, std
 
-  
-
-
-def read(line):
-    n_inputs = 2561
-    defs = [tf.constant([], dtype=tf.string)]+ [0.]*n_inputs
-    fields = tf.io.decode_csv(line, record_defaults=defs)[2:]  #exclude filename and label
-    x = tf.stack(fields)
-    x = tf.expand_dims(x,1)
-    return x
 
 def csv_reader_dataset(filepaths, n_readers=5,
                        n_read_threads=None, shuffle_buffer_size=10000,
                        n_parse_threads=tf.data.experimental.AUTOTUNE,
-                       batch_size=32, shuffle=True, n_sec_per_sample=1):
+                       batch_size=32, shuffle=True, n_sec_per_sample=1,
+                       sr=512):
+    def read(line):
+        n_inputs = 2561
+        defs = [tf.constant([], dtype=tf.string)] + [0.] * n_inputs
+        fields = tf.io.decode_csv(line, record_defaults=defs)[
+                 2:]  # exclude filename and label
+        x = tf.stack(fields)
+        x = tf.expand_dims(x, 1)
+        return x
+    
     n_row_per_file = 720
     dataset = tf.data.Dataset.list_files(filepaths, shuffle=shuffle)
     shuffle_buffer_size = min(len(filepaths) * n_row_per_file, 10000)
@@ -139,15 +184,14 @@ def csv_reader_dataset(filepaths, n_readers=5,
 
     # reshape the sample to 1 second
     def reshape_to_k_sec(feature, n_sec=1, sr=512):
-        return tf.reshape(feature[:(5//n_sec)*n_sec*sr], (5//n_sec, n_sec*sr))  # flexible to the number of sec per sample
-    
-    dataset = dataset.map(map_func=lambda x: reshape_to_k_sec(x, n_sec=1, sr=512), num_parallel_calls=n_parse_threads)
+        return tf.reshape(feature[:(5//n_sec)*n_sec*sr], (5//n_sec, n_sec*sr, 1))  # flexible to the number of sec per sample
+
+    dataset = dataset.map(map_func=lambda x: reshape_to_k_sec(x, n_sec=n_sec_per_sample, sr=sr), num_parallel_calls=n_parse_threads)
     dataset = dataset.flat_map(lambda x: tf.data.Dataset.from_tensor_slices(x))
     # dataset = dataset.map(lambda x: (x,x) , num_parallel_calls=n_parse_threads)
     
     dataset = dataset.batch(batch_size, drop_remainder=False)
     return dataset.prefetch(2)
-
 
 ################## Lu Data input pipeline ##########################
 def get_train_test_files_split(root, fns, ratio,
