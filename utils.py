@@ -70,7 +70,7 @@ def plot_latent_space(model, valid_set, run_logdir, epoch):
 
 
 def get_run_logdir(root_logdir, animal):
-    run_id = time.strftime("run_%Y_%m_%d-%H_%M_%S")+'_'+animal
+    run_id = time.strftime("run_EPG_anomaly_%Y_%m_%d-%H_%M_LOO_%S")+'_'+animal
     path = os.path.join(root_logdir, run_id)
     os.mkdir(path)
     return path

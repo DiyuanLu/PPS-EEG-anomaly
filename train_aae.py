@@ -9,14 +9,26 @@ from input_pipeline import csv_reader_dataset, get_train_val_files, get_data_fil
 from utils import get_run_logdir, plot_dict_loss
 
 LOO = True # False
-PPS_data_path = "/home/epilepsy-data/data/PPS-rats-from-Sebastian/PPS-Rats"
-#"C:/Users/LDY/Desktop/EPG/EPG_data/data/3d/PPS"
-# #/home/epilepsy-data/data/PPS-rats-from-Sebastian/PPS-Rats" #'/home/farahat/Documents/data/'
-Ctrl_data_path = "/home/epilepsy-data/data/PPS-rats-from-Sebastian/Control-Rats"
-#"C:/Users/LDY/Desktop/EPG/EPG_data/data/3d/control"
-# #/home/epilepsy-data/data/PPS-rats-from-Sebastian/PPS-Rats" #'/home/farahat/Documents/data/'
-root_logdir = "C:/Users/LDY/Desktop/EPG/EPG_data/results" #'/home/farahat/Documents/my_logs'
-#"/home/epilepsy-data/data/PPS-rats-from-Sebastian/resultsl-7rats"
+paths_platforms = {"Lu_laptop":{"PPS_data_path":"C:/Users/LDY/Desktop/EPG/EPG_data/data/3d/PPS",
+                                "Ctrl_data_path": "C:/Users/LDY/Desktop/EPG/EPG_data/data/3d/control",
+                                "root_logdir": "C:/Users/LDY/Desktop/EPG/EPG_data/results"
+                                },
+                   "FIAS_cluster": {"PPS_data_path": "/home/epilepsy-data/data/PPS-rats-from-Sebastian/PPS-Rats",
+                                    "Ctrl_data_path": "/home/epilepsy-data/data/PPS-rats-from-Sebastian/Control-Rats",
+                                    "root_logdir": "/home/epilepsy-data/data/PPS-rats-from-Sebastian/resultsl-7rats"
+                                    },
+                   "Farahat": {"PPS_data_path": '/home/farahat/Documents/data',
+                               "Ctrl_data_path": '/home/farahat/Documents/data', # TODO: your control dir
+                               "root_logdir": '/home/farahat/Documents/my_logs'
+                               }
+                   
+                   }
+
+platform = "Lu_laptop"
+PPS_data_path = paths_platforms[platform]["PPS_data_path"]
+Ctrl_data_path = paths_platforms[platform]["Ctrl_data_path"]
+root_logdir = paths_platforms[platform]["root_logdir"]
+#
 n_sec_per_sample = 1
 sampling_rate = 512
 input_size = n_sec_per_sample * sampling_rate
