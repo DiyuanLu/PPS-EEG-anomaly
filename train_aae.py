@@ -24,7 +24,7 @@ paths_platforms = {"Lu_laptop":{"PPS_data_path":"C:/Users/LDY/Desktop/EPG/EPG_da
                    
                    }
 
-platform = "Lu_laptop"
+platform = "FIAS_cluster"
 PPS_data_path = paths_platforms[platform]["PPS_data_path"]
 Ctrl_data_path = paths_platforms[platform]["Ctrl_data_path"]
 root_logdir = paths_platforms[platform]["root_logdir"]
@@ -43,7 +43,7 @@ n_files2use = 5
 for LOO_animal in LOO_animals:
     run_logdir = get_run_logdir(root_logdir, LOO_animal)
     train_files, valid_files = [], []
-    if_LOO_ctrl = True if "326" in LOO_animal else False
+    if_LOO_ctrl = True if "326" in LOO_animal else False  # determines whether it is in the LOO control rats case, then we need to get all PPS data and only do LOO in control
     if LOO:
         PPS_train_files, PPS_valid_files = get_data_files_LOO(PPS_data_path,
                                                               train_valid_split=True,

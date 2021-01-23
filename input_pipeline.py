@@ -72,7 +72,7 @@ def get_train_val_files(data_path, train_valid_split=True, train_percentage=0.8,
         animal_path = os.path.join(data_path, animal, animal)
         BL_path = os.path.join(animal_path, 'BL')
         BL_files = sorted([BL_path + f for f in listdir(BL_path) if isfile(join(BL_path, f))])
-        BL_files = list(filter(lambda x: ".csv" in x, BL_files))
+        BL_files = list(filter(lambda x: "new.csv" in x, BL_files))
         np.random.shuffle(BL_files)
 
         num2use = len(BL_files) if not num2use else num2use  # when num2use is None, then take all files from this animal
@@ -110,16 +110,19 @@ def get_data_files_LOO(data_path, train_valid_split=True,
     :param num2use: int, None when take all files. number of files to randomly pick for training and validation
     :return:
     """
-    animals = sorted([f for f in listdir(data_path)])
+    PPS_animals = ["1227", "1237", "1270", "1275", "1276", "32140", "32141"]#sorted([f for f in listdir(data_path)])
+    Ctrl_animals = ["3263", "3266", "3267"]#sorted([f for f in listdir(data_path)])
     assert LOO_ID is not None, "You have to put in the LOO animal ID" # if LOO_ID is not None
     if current_folder == "PPS" and not if_LOO_ctrl:  #leave out PPS
-        animals.remove(LOO_ID)  # Leave out one animal
+        PPS_animals.remove(LOO_ID)  # Leave out one animal
+        animals = PPS_animals
     elif current_folder == "PPS" and if_LOO_ctrl:  # get all PPS data, only BL
-        animals = animals
+        animals = PPS_animals
     elif current_folder == "Ctrl" and not if_LOO_ctrl:  #then get all data BL + EPG
-        animals = animals
+        animals = Ctrl_animals
     elif current_folder == "Ctrl" and not if_LOO_ctrl:   # then leave one animal, get BL + EPG
-        animals.remove(LOO_ID)
+        Ctrl_animals.remove(LOO_ID)
+        animals = Ctrl_animals
         
     files_list, train_file_list, valid_file_list = [], [], []
     for animal in animals:
@@ -129,7 +132,7 @@ def get_data_files_LOO(data_path, train_valid_split=True,
             files_of_this_animal = sorted(
                 [os.path.join(animal_path, 'BL', f) for f in
                  listdir(os.path.join(animal_path, 'BL'))])
-            files_of_this_animal = list(filter(lambda x: ".csv" in x,
+            files_of_this_animal = list(filter(lambda x: "new.csv" in x,
                                                files_of_this_animal))  # get only .csv files
             np.random.shuffle(files_of_this_animal)
             picked_files = files_of_this_animal[0:min(len(files_of_this_animal),
@@ -138,7 +141,7 @@ def get_data_files_LOO(data_path, train_valid_split=True,
             files_of_this_animal = sorted(
                             [os.path.join(animal_path, 'EPG', f) for f in
                              listdir(os.path.join(animal_path, 'EPG'))])
-            files_of_this_animal = list(filter(lambda x: ".csv" in x,
+            files_of_this_animal = list(filter(lambda x: "new.csv" in x,
                                                files_of_this_animal))  # get only .csv files
             np.random.shuffle(files_of_this_animal)
             num2use = len(
@@ -147,7 +150,7 @@ def get_data_files_LOO(data_path, train_valid_split=True,
                                                       num2use)]) # randomly pick a certai number of hours
         else:
             files_of_this_animal = sorted([os.path.join(animal_path, 'BL', f) for f in listdir(os.path.join(animal_path, 'BL'))])
-            files_of_this_animal = list(filter(lambda x: ".csv" in x,
+            files_of_this_animal = list(filter(lambda x: "new.csv" in x,
                                                files_of_this_animal))  # get only .csv files
             np.random.shuffle(files_of_this_animal)
             num2use = len(
@@ -214,7 +217,7 @@ def csv_reader_dataset(filepaths, n_readers=5,
         dataset = dataset.shuffle(shuffle_buffer_size)
     else:
         dataset = tf.data.TextLineDataset(dataset)
-    dataset = dataset.map(read, num_parallel_calls=n_parse_threads)
+    dataset = dataset.map(map_func=lambda x: read(x), num_parallel_calls=n_parse_threads)
     # dataset = dataset.map(lambda x: (x-mean) / (std + np.finfo(np.float32).eps), num_parallel_calls=n_parse_threads)
     dataset = dataset.map(lambda x: (x-tf.reduce_mean(x)) / (tf.math.reduce_std(x) + np.finfo(np.float32).eps), num_parallel_calls=n_parse_threads)
 
