@@ -4,6 +4,7 @@ import pdb
 import time
 import tensorflow as tf
 import numpy as np
+import yaml
 from sklearn.manifold import TSNE
 # tf.enable_eager_execution()
 
@@ -100,29 +101,42 @@ def sample_data(model, z_dim, run_logdir, norm_params, std, epoch, no_samples=10
     z = tf.convert_to_tensor([np.random.normal(norm_params[idx], std, size=(z_dim,1)) for idx in mixture_idx], dtype=tf.float32)
 
     x = model(z).numpy()
-    fig = plt.figure(figsize=(20,10))
+    row, col = 8, 4
+    fig, axes = plt.subplots(row, col, sharex=True, figsize=(15, 10))
     for i in range(1, no_samples+1):
-        ax = fig.add_subplot(no_samples, 1, i)
-        ax.plot(x[i-1], c='black', label='generated_data',  linewidth=2)
-        ax.set_yticks([], [])
-        if i < no_samples: 
-            ax.set_xticks([], [])
+        # ax = fig.add_subplot(no_samples, 1, i)
+        # ax.plot(x[i-1], c='black', label='generated_data',  linewidth=2)
+        axes[i // col, np.mod(i, col)].plot(x[i-1], c='black',
+                                            label='generated_data', linewidth=2)
+        # ax.set_yticks([], [])
+        # if i < no_samples:
+        #     ax.set_xticks([], [])
+        if np.mod(i, col) > 0:
+            plt.setp(axes[i // col, np.mod(i, col)].get_yticklabels(),
+                     visible=False)
+    plt.tight_layout()
+    plt.subplots_adjust(top=0.90, hspace=0.01, wspace=0.01)
     plt.legend(loc='upper right', shadow=True)
     plt.savefig(run_logdir+'/generated_data_'+str(epoch)+'.png')
     plt.close('all')
 
 
-
-
 def plot_samples(original_data, reconstructions, run_logdir, epoch):
-    fig = plt.figure(figsize=(20,10))
-    for i in range(1, len(original_data)+1):
-        ax = fig.add_subplot(len(original_data), 1, i)
-        ax.plot(original_data[i-1], c='red', label='original',  linewidth=2)
-        ax.plot(reconstructions[i-1], c='black', label='reconstructed',  linewidth=2)
-        ax.set_yticks([], [])
-        if i < len(original_data): 
-            ax.set_xticks([], [])
+    row, col = 8, 4
+    fig, axes = plt.subplots(row, col, sharex=True, figsize=(15,10))
+    for i in range(row*col):
+
+        # ax = fig.add_subplot(len(original_data), 1, i)
+        axes[i // col, np.mod(i, col)].plot(original_data[i], c='red', label='original',  linewidth=2)
+        axes[i // col, np.mod(i, col)].plot(reconstructions[i], c='black', label='reconstructed',  linewidth=2)
+        # ax.set_yticks([], [])
+        # if i < len(original_data):
+        #     ax.set_xticks([], [])
+        if np.mod(i, col) > 0:
+            plt.setp(axes[i // col, np.mod(i, col)].get_yticklabels(),
+                     visible=False)
+    plt.tight_layout()
+    plt.subplots_adjust(top=0.90, hspace=0.01, wspace=0.01)
     plt.legend(loc='upper right', shadow=True)
     plt.savefig(run_logdir+'/valid_samples_plot_'+str(epoch)+'.png')
     plt.close('all')
@@ -140,8 +154,6 @@ def save_results(history, model, valid_set, note, run_logdir, no_samples=6):
 
     with open(run_logdir+'/notes.txt', 'a') as f:
         f.write(note)
-
-
 
 
 def KnuthMorrisPratt(text, pattern):
@@ -175,3 +187,12 @@ the match that caused the yield.'''
         matchLen += 1
         if matchLen == len(pattern):
             yield startPos
+
+
+class Struct:
+    def __init__(self, **entries):
+        self.__dict__.update(entries)
+    
+    def save_yaml(self, save_file_name):
+        with open(save_file_name, 'w') as outfile:
+            yaml.dump(self.__dict__, outfile, default_flow_style=False)
