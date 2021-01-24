@@ -3,6 +3,7 @@ matplotlib.use('Agg')
 import numpy as np
 import os
 import pickle
+import sys
 
 from aae import AAE
 from input_pipeline import csv_reader_dataset, get_train_val_files, get_data_files_LOO
@@ -21,7 +22,6 @@ paths_platforms = {"Lu_laptop":{"PPS_data_path":"C:/Users/LDY/Desktop/EPG/EPG_da
                                "Ctrl_data_path": '/home/farahat/Documents/data', # TODO: your control dir
                                "root_logdir": '/home/farahat/Documents/my_logs'
                                }
-                   
                    }
 
 platform = "FIAS_cluster"
@@ -41,7 +41,12 @@ n_files2use = 5
 
 
 for LOO_animal in LOO_animals:
+    # create output dir
     run_logdir = get_run_logdir(root_logdir, LOO_animal)
+
+    f = open(os.path.join(run_logdir, 'log_file.out'), 'w')
+    sys.stdout = f
+    
     train_files, valid_files = [], []
     if_LOO_ctrl = True if "326" in LOO_animal else False  # determines whether it is in the LOO control rats case, then we need to get all PPS data and only do LOO in control
     if LOO:
@@ -50,23 +55,21 @@ for LOO_animal in LOO_animals:
                                                               train_percentage=0.75, num2use=15,
                                                               LOO_ID=LOO_animal,
                                                               if_LOO_ctrl=if_LOO_ctrl,
-                                                              current_folder="PPS")
+                                                              current_folder="PPS", log_dir=run_logdir)
         Ctrl_train_files, Ctrl_valid_files = get_data_files_LOO(Ctrl_data_path,
                                                                 train_valid_split=True,
                                                                 train_percentage=0.75,
                                                                 num2use=100,
                                                                 LOO_ID=LOO_animal,
                                                                 if_LOO_ctrl=if_LOO_ctrl,
-                                                                current_folder="Ctrl")
+                                                                current_folder="Ctrl", log_dir=run_logdir)
         train_files.extend(PPS_train_files)
         train_files.extend(Ctrl_train_files)
         valid_files.extend(PPS_valid_files)
         valid_files.extend(Ctrl_valid_files)
     else:
-        train_files, valid_files = get_train_val_files(PPS_data_path, train_valid_split=True, train_percentage=0.8, num2use=n_files2use)
-    # here always have valid_set, so the output of previous function should always have train and valid lists
-    np.savetxt(os.path.join(run_logdir, "picked_train_files_{}.csv".format(len(train_files))), np.array(train_files), fmt="%s", delimiter=",")
-    np.savetxt(os.path.join(run_logdir, "picked_val_files_{}.csv".format(len(valid_files))), np.array(valid_files), fmt="%s", delimiter=",")
+        train_files, valid_files = get_train_val_files(PPS_data_path, train_valid_split=True, train_percentage=0.8, num2use=n_files2use, log_dir=run_logdir)
+
     train_set = csv_reader_dataset(train_files, batch_size=batch_size, n_sec_per_sample=n_sec_per_sample,
                            sr=sampling_rate)
     valid_set = csv_reader_dataset(valid_files, batch_size=batch_size, n_sec_per_sample=n_sec_per_sample,
@@ -79,11 +82,16 @@ for LOO_animal in LOO_animals:
     # model.print_trainable_weights_count()
     model.plot_models()
     metrics = model.train(n_epochs, train_set, valid_set)
+    
+    print("Save metrics")
     with open(run_logdir+'/metrics.pickle', 'wb') as handle:
         pickle.dump(metrics, handle)
     plot_dict_loss(metrics, run_logdir)
+    
+    print("Save model")
     model.save()
     model.clear_model()
+    f.close()
     
     
     

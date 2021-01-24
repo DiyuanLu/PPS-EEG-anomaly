@@ -2,7 +2,8 @@
 import tensorflow as tf
 import time
 # tf.enable_eager_execution()
-
+import gc
+from tqdm import tqdm
 import pdb
 import numpy as np
 from utils import predict_validation_samples, plot_samples, plot_latent_space, sample_data
@@ -359,7 +360,6 @@ class AAE(tf.keras.Model):
                 mixture_idx = np.random.choice(len(weights), size=batch_x.shape[0], replace=True, p=weights)
                 real_distribution = tf.convert_to_tensor([np.random.normal(self.norm_params[idx], self.std, size=(self.z_dim,1)) for idx in mixture_idx], dtype=tf.float32)
 
-                
                 encoder_output = self.encoder(batch_x, training=True)
                 dc_z_real = self.discriminator_z(real_distribution, training=True)[0]
                 dc_z_fake = self.discriminator_z(encoder_output, training=True)[0]
@@ -436,7 +436,6 @@ class AAE(tf.keras.Model):
 
         for epoch in range(n_epochs):
             start = time.time()
-
             epoch_ae_loss_avg = tf.compat.v2.metrics.Mean(name='Reconst loss')
             epoch_dc_x_loss_avg = tf.compat.v2.metrics.Mean(name='Disc loss_x')
             epoch_dc_z_acc_avg = tf.compat.v2.metrics.Mean(name='Disc acc_z')
@@ -446,7 +445,6 @@ class AAE(tf.keras.Model):
             epoch_dc_z_loss_avg = tf.compat.v2.metrics.Mean(name='Disc loss_z')
 
             for batch, (batch_x) in enumerate(train_set):
-
                 ae_loss, dc_z_loss, dc_z_acc, dc_x_loss, dc_x_acc, gen_z_loss, gen_x_loss, dc_z_loss_real, dc_z_loss_fake, dc_x_loss_real, dc_x_loss_fake = self.train_step(batch_x)
 
                 metrics['ae_losses'].append(ae_loss)
@@ -495,9 +493,10 @@ class AAE(tf.keras.Model):
                 wait +=1
                 if wait >= self.es_patience:
                     return metrics
+            
+            gc.collect()
 
-                                     
-
+            
         return metrics
     
     def clear_model(self):

@@ -56,7 +56,7 @@ def get_all_data_files(data_path, test_animal, train_valid_split=True, train_per
 
 
 # list the files
-def get_train_val_files(data_path, train_valid_split=True, train_percentage=0.8, num2use=None):
+def get_train_val_files(data_path, train_valid_split=True, train_percentage=0.8, num2use=None, log_dir="./results"):
     """
     Get files from all animals
     :param data_path:
@@ -85,17 +85,25 @@ def get_train_val_files(data_path, train_valid_split=True, train_percentage=0.8,
                           round(len(picked_files) * train_percentage):])
             
     if train_valid_split:
+        np.savetxt(os.path.join(log_dir, "picked_train_files_{}.csv".format(
+            len(train_file_list))), np.array(train_file_list), fmt="%s", delimiter=",")
+        np.savetxt(os.path.join(log_dir, "picked_val_files_{}.csv".format(
+            len(valid_file_list))), np.array(valid_file_list), fmt="%s", delimiter=",")
         np.random.shuffle(train_file_list)
         np.random.shuffle(valid_file_list)
         return train_file_list, valid_file_list
     else:
+        np.savetxt(os.path.join(log_dir, "picked_whole_files_{}.csv".format(
+            len(valid_file_list))), np.array(files_list), fmt="%s",
+                   delimiter=",")
         np.random.shuffle(files_list)
         return files_list  # the valid list is empty
         
         
 def get_data_files_LOO(data_path, train_valid_split=True,
                        train_percentage=0.9, num2use=None,
-                       LOO_ID=None, if_LOO_ctrl=False, current_folder="PPS"):
+                       LOO_ID=None, if_LOO_ctrl=False,
+                       current_folder="PPS", log_dir=run_logdir):
     """
     Get both BL and EPG files
     :param data_path: str, data root dir
@@ -166,10 +174,19 @@ def get_data_files_LOO(data_path, train_valid_split=True,
             valid_file_list.extend(picked_files[round(len(picked_files)*train_percentage):])
         
     if train_valid_split:
+        np.savetxt(os.path.join(log_dir, "{}_picked_train_files_{}.csv".format(current_folder,
+            len(train_file_list))), np.array(train_file_list), fmt="%s",
+                   delimiter=",")
+        np.savetxt(os.path.join(log_dir, "{}_picked_val_files_{}.csv".format(current_folder,
+            len(valid_file_list))), np.array(valid_file_list), fmt="%s",
+                   delimiter=",")
         np.random.shuffle(train_file_list)
         np.random.shuffle(valid_file_list)
         return train_file_list, valid_file_list
     else:
+        np.savetxt(os.path.join(log_dir, "{}_folder_picked_whole_files_{}.csv".format(current_folder,
+            len(train_file_list))), np.array(train_file_list), fmt="%s",
+                   delimiter=",")
         np.random.shuffle(files_list)
         return files_list  # the valid list is empty
 
