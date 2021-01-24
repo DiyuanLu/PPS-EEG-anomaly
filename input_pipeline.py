@@ -100,13 +100,13 @@ def get_train_val_files(data_path, train_valid_split=True, train_percentage=0.8,
         return files_list  # the valid list is empty
         
         
-def get_data_files_LOO(data_path, train_valid_split=True,
-                       train_percentage=0.9, num2use=None,
+def get_data_files_LOO(data_path, args, train_valid_split=True,
                        LOO_ID=None, if_LOO_ctrl=False,
-                       current_folder="PPS", log_dir=run_logdir):
+                       current_folder="PPS"):
     """
     Get both BL and EPG files
     :param data_path: str, data root dir
+    :param args: dict, all parameters
     :param train_file_list: list, with training file names
     :param valid_file_list: list, with validation file names
     :param train_valid_split: bool,
@@ -114,55 +114,56 @@ def get_data_files_LOO(data_path, train_valid_split=True,
     :param if_LOO: bool, whether remove the LOO rat ID
     :param LOO_ID: str, test animal id
     :param with_control: bool, whether include control animals' data
-    :param current_folder: str, the current group "PPS" or "Ctrl"
+    :param current_folder: str, the current group "pps" or "Ctrl"
     :param num2use: int, None when take all files. number of files to randomly pick for training and validation
     :return:
     """
-    PPS_animals = ["1227", "1237", "1270", "1275", "1276", "32140", "32141"]#sorted([f for f in listdir(data_path)])
-    Ctrl_animals = ["3263", "3266", "3267"]#sorted([f for f in listdir(data_path)])
+   
     assert LOO_ID is not None, "You have to put in the LOO animal ID" # if LOO_ID is not None
-    if current_folder == "PPS" and not if_LOO_ctrl:  #leave out PPS
-        PPS_animals.remove(LOO_ID)  # Leave out one animal
-        animals = PPS_animals
-    elif current_folder == "PPS" and if_LOO_ctrl:  # get all PPS data, only BL
-        animals = PPS_animals
-    elif current_folder == "Ctrl" and not if_LOO_ctrl:  #then get all data BL + EPG
-        animals = Ctrl_animals
-    elif current_folder == "Ctrl" and not if_LOO_ctrl:   # then leave one animal, get BL + EPG
-        Ctrl_animals.remove(LOO_ID)
-        animals = Ctrl_animals
+    if current_folder == "pps" and not if_LOO_ctrl:  #leave out pps
+        args.pps_animals.remove(LOO_ID)  # Leave out one animal
+        animals = args.pps_animals
+    elif current_folder == "pps" and if_LOO_ctrl:  # get all pps data, only BL
+        animals = args.pps_animals
+    elif current_folder == "ctrl" and not if_LOO_ctrl:  #then get all data BL + EPG
+        animals = args.ctrl_animals
+    elif current_folder == "ctrl" and not if_LOO_ctrl:   # then leave one animal, get BL + EPG
+        args.ctrl_animals.remove(LOO_ID)
+        animals = args.ctrl_animals
         
     files_list, train_file_list, valid_file_list = [], [], []
     for animal in animals:
         animal_path = os.path.join(data_path, animal, animal)
         
-        if current_folder == "Ctrl":  # Get BL + EPG
+        if current_folder == "ctrl":  # Get BL + EPG
             files_of_this_animal = sorted(
                 [os.path.join(animal_path, 'BL', f) for f in
                  listdir(os.path.join(animal_path, 'BL'))])
-            files_of_this_animal = list(filter(lambda x: "new.csv" in x,
+            files_of_this_animal = list(filter(lambda x: args.file_pattern in x,
                                                files_of_this_animal))  # get only .csv files
             np.random.shuffle(files_of_this_animal)
+            num2use = len(
+                files_of_this_animal) if not args.n_ctrl2use else args.n_ctrl2use
             picked_files = files_of_this_animal[0:min(len(files_of_this_animal),
-                                                      15)]  # TODO: hard coded num2use for control BL
+                                                      num2use)]  # TODO: hard coded num2use for control BL
             
             files_of_this_animal = sorted(
                             [os.path.join(animal_path, 'EPG', f) for f in
                              listdir(os.path.join(animal_path, 'EPG'))])
-            files_of_this_animal = list(filter(lambda x: "new.csv" in x,
+            files_of_this_animal = list(filter(lambda x: args.file_pattern in x,
                                                files_of_this_animal))  # get only .csv files
             np.random.shuffle(files_of_this_animal)
             num2use = len(
-                files_of_this_animal) if not num2use else num2use  # when num2use is None, then take all files from this animal
+                files_of_this_animal) if not args.n_ctrl2use else args.n_ctrl2use  # when num2use is None, then take all files from this animal
             picked_files.extend(files_of_this_animal[0:min(len(files_of_this_animal),
                                                       num2use)]) # randomly pick a certai number of hours
         else:
             files_of_this_animal = sorted([os.path.join(animal_path, 'BL', f) for f in listdir(os.path.join(animal_path, 'BL'))])
-            files_of_this_animal = list(filter(lambda x: "new.csv" in x,
+            files_of_this_animal = list(filter(lambda x: args.file_pattern in x,
                                                files_of_this_animal))  # get only .csv files
             np.random.shuffle(files_of_this_animal)
             num2use = len(
-                files_of_this_animal) if not num2use else num2use  # when num2use is None, then take all files from this animal
+                files_of_this_animal) if not args.n_pps2use else args.n_pps2use  # when num2use is None, then take all files from this animal
             picked_files = files_of_this_animal[0:min(len(files_of_this_animal),
                                            num2use)] # randomly pick a certai number of hours
         
@@ -170,21 +171,22 @@ def get_data_files_LOO(data_path, train_valid_split=True,
     
         if train_valid_split:
             random.shuffle(picked_files)
-            train_file_list.extend(picked_files[:round(len(picked_files)*train_percentage)])
-            valid_file_list.extend(picked_files[round(len(picked_files)*train_percentage):])
+            num_train = np.int(np.floor(len(picked_files)*args.train_percentage))
+            valid_file_list.extend(picked_files[num_train:])
+            train_file_list.extend(picked_files[:num_train])
         
     if train_valid_split:
-        np.savetxt(os.path.join(log_dir, "{}_picked_train_files_{}.csv".format(current_folder,
+        np.savetxt(os.path.join(args.run_logdir, "{}_picked_train_files_{}.csv".format(current_folder,
             len(train_file_list))), np.array(train_file_list), fmt="%s",
                    delimiter=",")
-        np.savetxt(os.path.join(log_dir, "{}_picked_val_files_{}.csv".format(current_folder,
+        np.savetxt(os.path.join(args.run_logdir, "{}_picked_val_files_{}.csv".format(current_folder,
             len(valid_file_list))), np.array(valid_file_list), fmt="%s",
                    delimiter=",")
         np.random.shuffle(train_file_list)
         np.random.shuffle(valid_file_list)
         return train_file_list, valid_file_list
     else:
-        np.savetxt(os.path.join(log_dir, "{}_folder_picked_whole_files_{}.csv".format(current_folder,
+        np.savetxt(os.path.join(args.run_logdir, "{}_folder_picked_whole_files_{}.csv".format(current_folder,
             len(train_file_list))), np.array(train_file_list), fmt="%s",
                    delimiter=",")
         np.random.shuffle(files_list)

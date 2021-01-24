@@ -7,7 +7,6 @@ from tqdm import tqdm
 import pdb
 import numpy as np
 from utils import predict_validation_samples, plot_samples, plot_latent_space, sample_data
-
 random_seed = 42
 tf.compat.v1.random.set_random_seed(random_seed)
 np.random.seed(random_seed)
@@ -115,6 +114,15 @@ class AAE(tf.keras.Model):
         
         return model
 
+    def upsample_resize_image(x, size=[516, 1]):
+        """
+        resize the data. The size is target_size+kernel_size-1
+        :param size:
+        :return:
+        """
+        return tf.compat.v1.image.resize_images(x, size=size)
+
+
     def cnn_decoder(self):
         encoded = tf.keras.Input(shape=(self.z_dim, 1))
         reshape_encoded = tf.keras.layers.Flatten()(encoded)
@@ -126,7 +134,6 @@ class AAE(tf.keras.Model):
         net = tf.keras.layers.BatchNormalization()(net)
         net = tf.keras.layers.ReLU()(net)
         
-
         net = tf.keras.layers.Conv2DTranspose(64, (self.kernel_size,1), strides=(2,1),  padding='same', dilation_rate=1)(net)
         net = tf.keras.layers.BatchNormalization()(net)
         net = tf.keras.layers.ReLU()(net)
@@ -135,25 +142,23 @@ class AAE(tf.keras.Model):
         net = tf.keras.layers.Conv2DTranspose(32, (self.kernel_size,1), strides=(2,1),  padding='same', dilation_rate=1)(net)
         net = tf.keras.layers.BatchNormalization()(net)
         net = tf.keras.layers.ReLU()(net)
-        
 
         net = tf.keras.layers.Conv2DTranspose(16, (self.kernel_size,1), strides=(2,1),  padding='same', dilation_rate=1)(net)
         net = tf.keras.layers.BatchNormalization()(net)
         net = tf.keras.layers.ReLU()(net)
-        
-        upsampled_tmp = tf.compat.v1.image.resize_images(net, size=[
-            self.input_size + self.kernel_size - 1, 1])
+        upsampled_tmp = tf.image.resize(net, size=[self.input_size + self.kernel_size - 1, 1])
         decoded = tf.keras.layers.Conv2D(1, (self.kernel_size,1), activation=None)(upsampled_tmp)
         decoded = tf.keras.layers.BatchNormalization()(decoded)
         decoded = tf.keras.layers.ReLU()(decoded)
         decoded = tf.keras.layers.Reshape((self.input_size, 1))(decoded)
+        
         
         model = tf.keras.Model(inputs=encoded, outputs=decoded)
         print('Decoder : ')
         print(model.summary(line_length=50))
     
         return model
-    
+
     
     def make_decoder_model(self):
         encoded = tf.keras.Input(shape=(self.z_dim, 1))

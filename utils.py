@@ -4,6 +4,7 @@ import pdb
 import time
 import tensorflow as tf
 import numpy as np
+import yaml
 from sklearn.manifold import TSNE
 # tf.enable_eager_execution()
 
@@ -142,8 +143,6 @@ def save_results(history, model, valid_set, note, run_logdir, no_samples=6):
         f.write(note)
 
 
-
-
 def KnuthMorrisPratt(text, pattern):
     
     '''Yields all starting positions of copies of the pattern in the text.
@@ -175,3 +174,12 @@ the match that caused the yield.'''
         matchLen += 1
         if matchLen == len(pattern):
             yield startPos
+
+
+class Struct:
+    def __init__(self, **entries):
+        self.__dict__.update(entries)
+    
+    def save_yaml(self, save_file_name):
+        with open(save_file_name, 'w') as outfile:
+            yaml.dump(self.__dict__, outfile, default_flow_style=False)
