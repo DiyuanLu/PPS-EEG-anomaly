@@ -155,7 +155,7 @@ class AAE(tf.keras.Model):
         # upsampled_tmp = tf.keras.layers.Lambda(lambda x: self.upsample_resize_image(x, size=[self.input_size + self.kernel_size - 1, 1]))
         decoded = tf.keras.layers.Conv2D(1, (self.kernel_size,1), activation=None)(upsampled_tmp)
         decoded = tf.keras.layers.BatchNormalization()(decoded)
-        decoded = tf.keras.layers.ReLU()(decoded)
+        # decoded = tf.keras.layers.ReLU()(decoded)
         decoded = tf.keras.layers.Reshape((self.input_size, 1))(decoded)
         
         

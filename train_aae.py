@@ -53,7 +53,7 @@ assert args.input_size == args.n_sec_per_sample * args.sampling_rate, "input siz
 
 for LOO_animal in args.LOO_animals:
     # create output dir
-    args.run_logdir = get_run_logdir(root_logdir, LOO_animal)
+    args.run_logdir = get_run_logdir(root_logdir, LOO_animal, args)
 
     f = open(os.path.join(args.run_logdir, 'log_file.out'), 'w')
     sys.stdout = f
@@ -83,9 +83,7 @@ for LOO_animal in args.LOO_animals:
                            sr=args.sampling_rate)
     valid_set = csv_reader_dataset(valid_files, batch_size=args.batch_size, n_sec_per_sample=args.n_sec_per_sample,
                            sr=args.sampling_rate)
-    
-    train_set = train_set.take(150)   # what does this do?
-    
+
     # the model should be trained with the data from all rats at the same time. Not one after another.
     model = AAE(args.input_size, args.h_dim, args.z_dim, args.run_logdir)
     # model.print_trainable_weights_count()

@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import os
 import pdb
 import time
+from datetime import datetime
 import tensorflow as tf
 import numpy as np
 import yaml
@@ -70,8 +71,16 @@ def plot_latent_space(model, valid_set, run_logdir, epoch):
     plt.close()
 
 
-def get_run_logdir(root_logdir, animal):
-    run_id = time.strftime("run_EPG_anomaly_%Y_%m_%d-%H_%M_LOO_%S")+'_'+animal
+def get_run_logdir(root_logdir, animal, args):
+    """
+    Get the experiment log dir
+    :param root_logdir:
+    :param animal:
+    :param args:
+    :return:n_pps2use
+    """
+    time_str = '{0:%Y-%m-%dT%H-%M-%S}'.format(datetime.now())
+    run_id = "run_EPG_anomaly_{}_pps{}h_ctrl{}h_LOO_{}".format(time_str, args.n_pps2use, args.n_ctrl2use, animal)
     path = os.path.join(root_logdir, run_id)
     os.mkdir(path)
     return path
