@@ -114,15 +114,6 @@ class AAE(tf.keras.Model):
         
         return model
 
-    def upsample_resize_image(x, size=[516, 1]):
-        """
-        resize the data. The size is target_size+kernel_size-1
-        :param size:
-        :return:
-        """
-        return tf.compat.v1.image.resize_images(x, size=size)
-
-
     def cnn_decoder(self):
         encoded = tf.keras.Input(shape=(self.z_dim, 1))
         reshape_encoded = tf.keras.layers.Flatten()(encoded)
@@ -149,9 +140,7 @@ class AAE(tf.keras.Model):
         upsampled_tmp = tf.image.resize(net, size=[self.input_size + self.kernel_size - 1, 1])
         decoded = tf.keras.layers.Conv2D(1, (self.kernel_size,1), activation=None)(upsampled_tmp)
         decoded = tf.keras.layers.BatchNormalization()(decoded)
-        decoded = tf.keras.layers.ReLU()(decoded)
         decoded = tf.keras.layers.Reshape((self.input_size, 1))(decoded)
-        
         
         model = tf.keras.Model(inputs=encoded, outputs=decoded)
         print('Decoder : ')
@@ -471,20 +460,21 @@ class AAE(tf.keras.Model):
                 epoch_dc_x_acc_avg(dc_x_acc)
                 epoch_gen_z_loss_avg(gen_z_loss)
                 epoch_gen_x_loss_avg(gen_x_loss)
-
-                self.print_status_bar(batch, False,  [epoch_ae_loss_avg, epoch_dc_z_loss_avg,
-                                                    epoch_dc_z_acc_avg, epoch_dc_x_loss_avg, epoch_dc_x_acc_avg, epoch_gen_z_loss_avg, epoch_gen_x_loss_avg ])
+                
+                if batch%50== 0:
+                    self.print_status_bar(batch, False,  [epoch_ae_loss_avg, epoch_dc_z_loss_avg,
+                                                        epoch_dc_z_acc_avg, epoch_dc_x_loss_avg, epoch_dc_x_acc_avg, epoch_gen_z_loss_avg, epoch_gen_x_loss_avg ])
 
             epoch_time = time.time() - start
             self.print_status_bar('Epoch :' + str(epoch+1)+' Time: '+str(round(epoch_time)), True,  [epoch_ae_loss_avg, epoch_dc_z_loss_avg,
                                                     epoch_dc_z_acc_avg, epoch_dc_x_loss_avg, epoch_dc_x_acc_avg, epoch_gen_z_loss_avg, epoch_gen_x_loss_avg ])
 
             if (epoch+1) % 1 == 0:
-                original_data, reconstructions = predict_validation_samples(self, valid_set, no_samples=10)
+                original_data, reconstructions = predict_validation_samples(self, valid_set, no_samples=50)
                 plot_samples(original_data, reconstructions, self.run_logdir, epoch+1)
         
             if (epoch+1) % 1 == 0:
-                sample_data(self.decoder, self.z_dim, self.run_logdir, self.norm_params, self.std, epoch+1, no_samples=10)      
+                sample_data(self.decoder, self.z_dim, self.run_logdir, self.norm_params, self.std, epoch+1, no_samples=50)
 
             # if (epoch+1) % 1 == 0:
             #     plot_latent_space(self.encoder, valid_set, self.run_logdir, epoch+1)     
