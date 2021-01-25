@@ -121,15 +121,15 @@ def get_data_files_LOO(data_path, args, train_valid_split=True,
    
     assert LOO_ID is not None, "You have to put in the LOO animal ID" # if LOO_ID is not None
     if current_folder == "pps" and not if_LOO_ctrl:  #leave out pps
+        args.pps_animals.remove(LOO_ID)  # Leave out one animal
         animals = args.pps_animals
-        animals.remove(LOO_ID)  # Leave out one animal
     elif current_folder == "pps" and if_LOO_ctrl:  # get all pps data, only BL
         animals = args.pps_animals
     elif current_folder == "ctrl" and not if_LOO_ctrl:  #then get all data BL + EPG
         animals = args.ctrl_animals
     elif current_folder == "ctrl" and not if_LOO_ctrl:   # then leave one animal, get BL + EPG
+        args.ctrl_animals.remove(LOO_ID)
         animals = args.ctrl_animals
-        animals.remove(LOO_ID)
         
     files_list, train_file_list, valid_file_list = [], [], []
     for animal in animals:
