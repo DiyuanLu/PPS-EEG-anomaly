@@ -42,10 +42,19 @@ parameters = {
     "n_pps2use": 20,  # 20,
     "n_ctrl2use": 100,  # 100,
     "train_percentage": 0.9,
-    "pps_animals": ["1227", "1275", "1270", "1275", "1276", "32140", "32141"],#
+    "pps_animals": ["1227", "1237", "1270", "1275", "1276", "32140", "32141"],#
     "ctrl_animals": ["3263", "3266", "3267"],
     "file_pattern": "new.csv",
-    "if_include_ctrl": False # whether to include ctrl animals
+    "if_include_ctrl": False, # whether to include ctrl animals
+    
+    # model related parameters
+    "std": 0.1,
+    "kernel_size": 5,
+    "ae_loss_weight": 1.0,
+    "reg_loss_weight": 0.0,
+    "gen_z_loss_weight": 1.0,
+    "gen_x_loss_weight": 0.0,
+    "dc_loss_weight": 1.0
 }
 
 args = Struct(**parameters)

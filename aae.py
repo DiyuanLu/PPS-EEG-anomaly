@@ -15,10 +15,12 @@ class AAE(tf.keras.Model):
     
     def __init__(self, input_size, h_dim, z_dim, run_logdir):
         super(AAE, self).__init__()
+
         self.input_size = input_size
         self.h_dim = h_dim
         self.z_dim = z_dim
         self.kernel_size = 5
+        
 
         self.es_delta = 0.001
         self.es_patience = 5
@@ -37,17 +39,18 @@ class AAE(tf.keras.Model):
 
         self.norm_params = np.array([0])
         self.std = 0.1
+        
 
         self.ae_optimizer = tf.keras.optimizers.Adam(learning_rate=self.base_lr, beta_1=0.5)
         self.dc_z_optimizer = tf.keras.optimizers.Adam(learning_rate=self.base_lr, beta_1=0.5)
         self.dc_x_optimizer = tf.keras.optimizers.Adam(learning_rate=self.base_lr, beta_1=0.5)
         self.gen_z_optimizer = tf.keras.optimizers.Adam(learning_rate=self.base_lr, beta_1=0.5)
         self.gen_x_optimizer = tf.keras.optimizers.Adam(learning_rate=self.base_lr, beta_1=0.5)
-
-        self.ae_loss_weight = 0.9
-        self.reg_loss_weight = 0.02
-        self.gen_z_loss_weight = 0.04
-        self.gen_x_loss_weight = 0.04
+        
+        self.ae_loss_weight = 1.0
+        self.reg_loss_weight = 0.0
+        self.gen_z_loss_weight = 1.0
+        self.gen_x_loss_weight = 0.0
         self.dc_loss_weight = 1.0
                 
         self.encoder = self.make_encoder_model()
