@@ -7,7 +7,7 @@ import tensorflow as tf
 import numpy as np
 import yaml
 from sklearn.manifold import TSNE
-# tf.enable_eager_execution()
+
 
 def plot_errors(errors, path, err='reconstruction'):
     fig = plt.figure(figsize=(15,10))
@@ -23,7 +23,6 @@ def plot_errors(errors, path, err='reconstruction'):
         plt.ylabel('Error')
         ticks = np.arange(0,errors.shape[0], 1843200/2)
         plt.xticks(ticks, np.arange(0,len(ticks)/2, 0.5))
-        
     
     plt.grid(True)
     plt.xlabel('Time in hours')
@@ -43,6 +42,7 @@ def plot_dict_loss(d, run_logdir):
         #     ax.set_ylim([0, 1])
         ax.legend()
     plt.savefig(run_logdir+'/losses.png')
+    plt.savefig(run_logdir+"/losses.pdf", format="pdf")
 
 def plot_loss(history, run_logdir):
     loss = history.history['loss']
@@ -80,7 +80,7 @@ def get_run_logdir(root_logdir, animal, args):
     :return:n_pps2use
     """
     time_str = '{0:%Y-%m-%dT%H-%M-%S}'.format(datetime.now())
-    run_id = "run_EPG_anomaly_{}_pps{}h_ctrl{}h_LOO_{}".format(time_str, args.n_pps2use, args.n_ctrl2use, animal)
+    run_id = "run_dim_{}_EPG_anomaly_{}_pps{}h_ctrl{}h_LOO_{}".format(args.z_dim, time_str, args.n_pps2use, args.n_ctrl2use, animal)
     path = os.path.join(root_logdir, run_id)
     os.mkdir(path)
     return path
@@ -103,8 +103,6 @@ def predict_validation_samples(model, valid_set, no_samples=6):
     return original_data, reconstructions
 
 def sample_data(model, z_dim, run_logdir, norm_params, std, epoch, no_samples=10):
-    # z = tf.random.normal([no_samples, z_dim, 1], mean=0.0, stddev=1.0)
-
     weights = np.ones(len(norm_params), dtype=np.float64) / len(norm_params)
     mixture_idx = np.random.choice(len(weights), size=no_samples, replace=True, p=weights)
     z = tf.convert_to_tensor([np.random.normal(norm_params[idx], std, size=(z_dim,1)) for idx in mixture_idx], dtype=tf.float32)
@@ -113,13 +111,8 @@ def sample_data(model, z_dim, run_logdir, norm_params, std, epoch, no_samples=10
     row, col = 8, 4
     fig, axes = plt.subplots(row, col, sharex=True, figsize=(15, 10))
     for i in range(1, no_samples+1):
-        # ax = fig.add_subplot(no_samples, 1, i)
-        # ax.plot(x[i-1], c='black', label='generated_data',  linewidth=2)
         axes[i // col, np.mod(i, col)].plot(x[i-1], c='black',
                                             label='generated_data', linewidth=2)
-        # ax.set_yticks([], [])
-        # if i < no_samples:
-        #     ax.set_xticks([], [])
         if np.mod(i, col) > 0:
             plt.setp(axes[i // col, np.mod(i, col)].get_yticklabels(),
                      visible=False)
@@ -134,13 +127,8 @@ def plot_samples(original_data, reconstructions, run_logdir, epoch):
     row, col = 8, 4
     fig, axes = plt.subplots(row, col, sharex=True, figsize=(15,10))
     for i in range(row*col):
-
-        # ax = fig.add_subplot(len(original_data), 1, i)
         axes[i // col, np.mod(i, col)].plot(original_data[i], c='red', label='original',  linewidth=2)
         axes[i // col, np.mod(i, col)].plot(reconstructions[i], c='black', label='reconstructed',  linewidth=2)
-        # ax.set_yticks([], [])
-        # if i < len(original_data):
-        #     ax.set_xticks([], [])
         if np.mod(i, col) > 0:
             plt.setp(axes[i // col, np.mod(i, col)].get_yticklabels(),
                      visible=False)
@@ -148,6 +136,7 @@ def plot_samples(original_data, reconstructions, run_logdir, epoch):
     plt.subplots_adjust(top=0.90, hspace=0.01, wspace=0.01)
     plt.legend(loc='upper right', shadow=True)
     plt.savefig(run_logdir+'/valid_samples_plot_'+str(epoch)+'.png')
+    plt.savefig(run_logdir+'/valid_samples_plot_'+str(epoch)+'.pdf', format="pdf")
     plt.close('all')
 
 

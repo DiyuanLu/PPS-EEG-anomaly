@@ -1,6 +1,5 @@
 
 import tensorflow as tf
-# tf.enable_eager_execution()
 import numpy as np
 import pandas as pd
 from os import listdir
@@ -8,11 +7,6 @@ from os.path import isfile, join
 import random
 import pdb
 import os
-
-random_seed = 42
-tf.compat.v1.set_random_seed(random_seed)
-np.random.seed(random_seed)
-
 
 # list the files
 def get_data_files_from_folder(path, train_valid_split=True, train_percentage=0.8):
