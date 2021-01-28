@@ -110,8 +110,8 @@ def sample_data(model, z_dim, run_logdir, norm_params, std, epoch, no_samples=10
     x = model(z).numpy()
     row, col = 8, 4
     fig, axes = plt.subplots(row, col, sharex=True, figsize=(15, 10))
-    for i in range(1, no_samples+1):
-        axes[i // col, np.mod(i, col)].plot(x[i-1], c='black',
+    for i in range(row*col):
+        axes[i // col, np.mod(i, col)].plot(x[i], c='black',
                                             label='generated_data', linewidth=2)
         if np.mod(i, col) > 0:
             plt.setp(axes[i // col, np.mod(i, col)].get_yticklabels(),

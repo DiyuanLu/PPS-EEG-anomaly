@@ -137,7 +137,7 @@ def get_data_files_LOO(data_path, args, train_valid_split=True,
                                                files_of_this_animal))  # get only .csv files
             np.random.shuffle(files_of_this_animal)
             num2use = len(
-                files_of_this_animal) if not args.n_ctrl2use else args.n_ctrl2use
+                files_of_this_animal) if args.n_pps2use is None else args.n_pps2use  # in BL, we take the same number of files from control rats as well
             picked_files = files_of_this_animal[0:min(len(files_of_this_animal),
                                                       num2use)]  # TODO: hard coded num2use for control BL
             
@@ -148,7 +148,7 @@ def get_data_files_LOO(data_path, args, train_valid_split=True,
                                                files_of_this_animal))  # get only .csv files
             np.random.shuffle(files_of_this_animal)
             num2use = len(
-                files_of_this_animal) if not args.n_ctrl2use else args.n_ctrl2use  # when num2use is None, then take all files from this animal
+                files_of_this_animal) if args.n_ctrl2use is None else args.n_ctrl2use  # when num2use is None, then take all files from this animal
             picked_files.extend(files_of_this_animal[0:min(len(files_of_this_animal),
                                                       num2use)]) # randomly pick a certai number of hours
         else:
@@ -157,7 +157,7 @@ def get_data_files_LOO(data_path, args, train_valid_split=True,
                                                files_of_this_animal))  # get only .csv files
             np.random.shuffle(files_of_this_animal)
             num2use = len(
-                files_of_this_animal) if not args.n_pps2use else args.n_pps2use  # when num2use is None, then take all files from this animal
+                files_of_this_animal) if args.n_pps2use is None else args.n_pps2use  # when num2use is None, then take all files from this animal
             picked_files = files_of_this_animal[0:min(len(files_of_this_animal),
                                            num2use)] # randomly pick a certai number of hours
         

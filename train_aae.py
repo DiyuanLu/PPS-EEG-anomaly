@@ -41,14 +41,14 @@ parameters = {
     "z_dim": 16,
     "n_epochs": 100,
     "batch_size": 128,
-    "LOO_animals": ["1275", "1276", "32140", "32141"], #["1275", "1276", "32140", "32141"],
+    "LOO_animals": ["1276", "32141", "32140"], # "1275", "1276",["1275", "1276", "32140", "32141"],
     "n_pps2use": 20,  # 20,
     "n_ctrl2use": 100,  # 100,
     "train_percentage": 0.9,
     "pps_animals": ["1227", "1237", "1270", "1275", "1276", "32140", "32141"],#
     "ctrl_animals": ["3263", "3266", "3267"],
     "file_pattern": "new.csv",
-    "if_include_ctrl": False, # whether to include ctrl animals
+    "if_include_ctrl": True, # whether to include ctrl animals
     
     # model related parameters
     "std": 0.1,
@@ -88,9 +88,9 @@ if not args.if_scanning:
                 LOO_ID=LOO_animal,
                 if_LOO_ctrl=if_LOO_ctrl,
                 current_folder="pps")
-            if args.if_include_ctrl:
+            if args.if_include_ctrl:  # Give the choice of excluding ctrl rats
                 ctrl_train_files, ctrl_valid_files = get_data_files_LOO(
-                    args.ctrl_data_path,
+                    args.ctrl_data_path, args,
                     train_valid_split=True,
                     LOO_ID=LOO_animal,
                     if_LOO_ctrl=if_LOO_ctrl,
@@ -99,10 +99,10 @@ if not args.if_scanning:
                 valid_files.extend(ctrl_valid_files)
             train_files.extend(pps_train_files)
             valid_files.extend(pps_valid_files)
-        else:
+        else:  # the following funtion is not working right
             train_files, valid_files = get_train_val_files(args.pps_data_path,
                                                            train_valid_split=True,
-                                                           train_percentage=0.8,
+                                                           train_percentage=args.train_percentage,
                                                            num2use=args.n_files2use,
                                                            log_dir=args.run_logdir)
         
