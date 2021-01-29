@@ -41,7 +41,7 @@ parameters = {
     "z_dim": 16,
     "n_epochs": 100,
     "batch_size": 128,
-    "LOO_animals": ["1276", "32141", "32140"], # "1275", "1276",["1275", "1276", "32140", "32141"],
+    "LOO_animals": [ "32140", "32141"], #, "1276" "1275", "1276",["1275", "1276", "32140", "32141"],
     "n_pps2use": 20,  # 20,
     "n_ctrl2use": 100,  # 100,
     "train_percentage": 0.9,
@@ -115,7 +115,7 @@ if not args.if_scanning:
         
         # the model should be trained with the data from all rats at the same time. Not one after another.
         model = AAE(args.input_size, args.h_dim, args.z_dim, args.run_logdir)
-        # model.print_trainable_weights_count()
+        model.print_trainable_weights_count()
         # model.plot_models()
         metrics = model.train(args.n_epochs, train_set, valid_set)
         
