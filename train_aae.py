@@ -68,12 +68,16 @@ def get_parameters(platform):
     
     args = Struct(**parameters)
     assert args.input_size == args.n_sec_per_sample * args.sampling_rate, "input size is wrong!"
+
+    if args.platform == "Farahat":
+        tf.enable_eager_execution()
+        
     return args
 
+# get parameters
 platform = "FIAS_cluster"
 args = get_parameters(platform)
-if args.platform == "Farahat":
-    tf.enable_eager_execution()
+
     
 if not args.if_scanning:
     for LOO_animal in args.LOO_animals:
