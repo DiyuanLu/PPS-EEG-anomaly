@@ -15,4 +15,4 @@
 srun python3 train_aae.py
 
 
-#command line: "sbatch --job-name 32141 --output %N_%j.log submit2cluster.sh"
+#command line: "sbatch --job-name 32141 --output %N_%j.log --error %N_%j.log submit2cluster.sh"

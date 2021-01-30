@@ -46,27 +46,19 @@ def _to_arg(flag, v):
 ############################################################################################3
 if __name__ == "__main__":
 	# Creating the flags to be passed to classifier.py
-	cmds_to_sh = []
-	for config_files in config_dirs:  # three arguments
-		cmd_python = ""
-		for k, v in zip(["output_path", "exp_config", "model_config"],
-		                [config_files[0], config_files[1], config_files[2]]):
-			# _key_to_flag transforms "something_stupid"   into   "--something-stupid"
-			flag = _key_to_flag(k)
-			# _to_arg transforms ("--something-stupid", a_value)   into   "--something-stupid a_value"
-			arg = _to_arg(flag, v)
-			# arg = _to_arg(flag, os.path.join(root_exp, v))
-			cmd_python += arg
-		cmds_to_sh.append(cmd_python)
-		# cmds_to_sh.append(cmd_python + " --output {}/%N_%j.log".format(config_files[0]))
-		# cmd_python = "" --output {}/%N_%j.log".format(config_files[0])"
+	# Get all parameters and generate the output folders
 	
-	commands = ''
-	for cmds in cmds_to_sh:
-		commands += "\"{}\" ".format(cmds)
+	if_to_cluster = False
+	# want to make one LOO training as one job, or  one scanning testing as one job
+	if if_to_cluster:
+		## two cases to train: parallel with cluster, so there won't be a loop of LOO_animals
+		for dirs in args.all_run_logdirs:
+			ClusterQueue(dirs)
 	
-
-	for dirs in config_dirs:
-		ClusterQueue(dirs)
-	
+	# Want to use for loop in the train_aae.py
+	else:
+		cmd_slurm = "srun -p sleuths -w jetski --mem=20000 --job-name EPG --output {}/%N_%j.log --error {}/%N_%j.log --gres gpu:rtx2080ti:1 python3 train_aae.py ".format(
+			args.run_logdir)
+		
+		os.system(cmd_slurm)
 

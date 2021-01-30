@@ -1,17 +1,16 @@
-from input_pipeline import csv_reader_dataset, get_all_data_files, get_data_files_from_folder
-from utils import get_run_logdir
+import matplotlib
+matplotlib.use('Agg')
+import os
+import scipy
+
 import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
-
-import itertools
-import os
-import scipy
-import math
 import seaborn as sns
 sns.set(style="darkgrid")
 import pandas as pd
 from sklearn.decomposition import PCA
+from input_pipeline import csv_reader_dataset, get_all_data_files, get_data_files_from_folder
 
 
 def scan_animals_with_pretrained_model(args):
@@ -20,11 +19,7 @@ def scan_animals_with_pretrained_model(args):
     :param args:
     :return:
     """
-    # data_path = '/home/farahat/Documents/data/'
-    # root_logdir = '/home/farahat/Documents/my_logs/final7/'
-    # root_logdir = '/home/farahat/Documents/my_logs/'
     batch_size = 512
-
     z_dim = args.z_dim
     
     for model_name in args.models[:]:
