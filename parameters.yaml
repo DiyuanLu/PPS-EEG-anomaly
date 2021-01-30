@@ -1,0 +1,29 @@
+# training parameters
+LOO: True  # False
+if_scanning: True   # TODO: True when testing
+n_sec_per_sample: 1
+sampling_rate: 512
+input_size: 512
+h_dim: 512
+z_dim: 16
+n_epochs: 100
+batch_size: 128
+LOO_animals: ["1275", "1276", "32140", "32141"]
+
+n_pps2use: 2  # 20,
+n_ctrl2use: 3  # 100,
+train_percentage: 0.9
+pps_animals: ["1227", "1237", "1270", "1275", "1276", "32140", "32141"]
+trl_animals: ["3263", "3266", "3267"]
+file_pattern: "new.csv"
+if_include_ctrl: True  # whether to include ctrl animals
+
+# model related parameters
+std: 0.1
+kernel_size: 5
+ae_loss_weight: 1.0
+reg_loss_weight: 0.0
+gen_z_loss_weight: 1.0
+gen_x_loss_weight: 0.0
+dc_loss_weight: 1.0
+

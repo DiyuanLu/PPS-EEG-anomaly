@@ -194,3 +194,40 @@ class Struct:
     def save_yaml(self, save_file_name):
         with open(save_file_name, 'w') as outfile:
             yaml.dump(self.__dict__, outfile, default_flow_style=False)
+
+
+def load_parameters(filename):
+    with open(filename) as f:
+        ym_dicts = yaml.load(f, Loader=yaml.FullLoader)
+        args = Struct(**ym_dicts)
+    return  args
+
+
+def get_dirs_with_platform(platform):
+    """
+    Given platform to get the root directories
+    :param platform:
+    :return:
+    """
+    paths_platforms = {"Lu_laptop": {
+        "pps_data_path": "C:/Users/LDY/Desktop/EPG/EPG_data/data/3d/PPS",
+        "ctrl_data_path": "C:/Users/LDY/Desktop/EPG/EPG_data/data/3d/control",
+        "root_logdir": "C:/Users/LDY/Desktop/EPG/EPG_data/results"
+    },
+        "FIAS_cluster": {
+            "pps_data_path": "/home/epilepsy-data/data/PPS-rats-from-Sebastian/PPS-Rats",
+            "ctrl_data_path": "/home/epilepsy-data/data/PPS-rats-from-Sebastian/Control-Rats",
+            "root_logdir": "/home/epilepsy-data/data/PPS-rats-from-Sebastian/resultsl-7rats"
+        },
+        "Farahat": {
+            "pps_data_path": '/home/farahat/Documents/data',
+            "ctrl_data_path": '/home/farahat/Documents/data',
+            # TODO: your control dir
+            "root_logdir": '/home/farahat/Documents/my_logs'
+        }
+    }
+    pps_data_path = paths_platforms[platform]["pps_data_path"]
+    ctrl_data_path = paths_platforms[platform]["ctrl_data_path"]
+    root_logdir = paths_platforms[platform]["root_logdir"]
+    
+    return pps_data_path, ctrl_data_path, root_logdir
