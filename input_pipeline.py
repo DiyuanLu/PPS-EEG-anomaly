@@ -18,6 +18,7 @@ def get_data_files_from_folder(path, train_valid_split=True, train_percentage=0.
     :return:
     """
     files = sorted([path+f for f in listdir(path) if isfile(join(path, f))])
+    files = list(filter(lambda x: "new.csv" in x, files))
     if train_valid_split:
         train_files = files[:round(len(files)*train_percentage)]
         valid_files = files[round(len(files)*train_percentage):]

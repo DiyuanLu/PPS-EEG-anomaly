@@ -12,62 +12,66 @@ from utils import get_run_logdir, plot_dict_loss, Struct
 from scanning import scan_animals_with_pretrained_model
 
 
-paths_platforms = {"Lu_laptop":{"pps_data_path":"C:/Users/LDY/Desktop/EPG/EPG_data/data/3d/PPS",
-                                "ctrl_data_path": "C:/Users/LDY/Desktop/EPG/EPG_data/data/3d/control",
-                                "root_logdir": "C:/Users/LDY/Desktop/EPG/EPG_data/results"
-                                },
-                   "FIAS_cluster": {"pps_data_path": "/home/epilepsy-data/data/PPS-rats-from-Sebastian/PPS-Rats",
-                                    "ctrl_data_path": "/home/epilepsy-data/data/PPS-rats-from-Sebastian/Control-Rats",
-                                    "root_logdir": "/home/epilepsy-data/data/PPS-rats-from-Sebastian/resultsl-7rats"
+def get_parameters(platform):
+    paths_platforms = {"Lu_laptop":{"pps_data_path":"C:/Users/LDY/Desktop/EPG/EPG_data/data/3d/PPS",
+                                    "ctrl_data_path": "C:/Users/LDY/Desktop/EPG/EPG_data/data/3d/control",
+                                    "root_logdir": "C:/Users/LDY/Desktop/EPG/EPG_data/results"
                                     },
-                   "Farahat": {"pps_data_path": '/home/farahat/Documents/data',
-                               "ctrl_data_path": '/home/farahat/Documents/data', # TODO: your control dir
-                               "root_logdir": '/home/farahat/Documents/my_logs'
-                               }
-                   }
+                       "FIAS_cluster": {"pps_data_path": "/home/epilepsy-data/data/PPS-rats-from-Sebastian/PPS-Rats",
+                                        "ctrl_data_path": "/home/epilepsy-data/data/PPS-rats-from-Sebastian/Control-Rats",
+                                        "root_logdir": "/home/epilepsy-data/data/PPS-rats-from-Sebastian/resultsl-7rats"
+                                        },
+                       "Farahat": {"pps_data_path": '/home/farahat/Documents/data',
+                                   "ctrl_data_path": '/home/farahat/Documents/data', # TODO: your control dir
+                                   "root_logdir": '/home/farahat/Documents/my_logs'
+                                   }
+                       }
+    
+    pps_data_path = paths_platforms[platform]["pps_data_path"]
+    ctrl_data_path = paths_platforms[platform]["ctrl_data_path"]
+    root_logdir = paths_platforms[platform]["root_logdir"]
+    #
+    parameters = {
+        "LOO": True, # False
+        "if_scanning": False,
+        "n_sec_per_sample": 1,
+        "sampling_rate": 512,
+        "input_size" : 512,
+        "h_dim": 512,
+        "z_dim": 16,
+        "n_epochs": 100,
+        "batch_size": 128,
+        "LOO_animals": ["32141"], # "32140", , "1276" "1275", "1276",["1275", "1276", "32140", "32141"],
+        "n_pps2use": 20,  # 20,
+        "n_ctrl2use": 100,  # 100,
+        "train_percentage": 0.9,
+        "pps_animals": ["1227", "1237", "1270", "1275", "1276", "32140", "32141"],#
+        "ctrl_animals": ["3263", "3266", "3267"],
+        "file_pattern": "new.csv",
+        "if_include_ctrl": True, # whether to include ctrl animals
+        
+        # model related parameters
+        "std": 0.1,
+        "kernel_size": 5,
+        "ae_loss_weight": 1.0,
+        "reg_loss_weight": 0.0,
+        "gen_z_loss_weight": 1.0,
+        "gen_x_loss_weight": 0.0,
+        "dc_loss_weight": 1.0,
+        
+        # data path related parameters
+        "platform": platform,
+        "pps_data_path": pps_data_path,
+        "ctrl_data_path": ctrl_data_path,
+        "root_logdir": root_logdir
+    }
+    
+    args = Struct(**parameters)
+    assert args.input_size == args.n_sec_per_sample * args.sampling_rate, "input size is wrong!"
+    return args
 
 platform = "FIAS_cluster"
-pps_data_path = paths_platforms[platform]["pps_data_path"]
-ctrl_data_path = paths_platforms[platform]["ctrl_data_path"]
-root_logdir = paths_platforms[platform]["root_logdir"]
-#
-parameters = {
-    "LOO": True, # False
-    "if_scanning": False,
-    "n_sec_per_sample": 1,
-    "sampling_rate": 512,
-    "input_size" : 512,
-    "h_dim": 512,
-    "z_dim": 16,
-    "n_epochs": 100,
-    "batch_size": 128,
-    "LOO_animals": [ "32140", "32141"], #, "1276" "1275", "1276",["1275", "1276", "32140", "32141"],
-    "n_pps2use": 20,  # 20,
-    "n_ctrl2use": 100,  # 100,
-    "train_percentage": 0.9,
-    "pps_animals": ["1227", "1237", "1270", "1275", "1276", "32140", "32141"],#
-    "ctrl_animals": ["3263", "3266", "3267"],
-    "file_pattern": "new.csv",
-    "if_include_ctrl": True, # whether to include ctrl animals
-    
-    # model related parameters
-    "std": 0.1,
-    "kernel_size": 5,
-    "ae_loss_weight": 1.0,
-    "reg_loss_weight": 0.0,
-    "gen_z_loss_weight": 1.0,
-    "gen_x_loss_weight": 0.0,
-    "dc_loss_weight": 1.0,
-    
-    # data path related parameters
-    "platform": platform,
-    "pps_data_path": pps_data_path,
-    "ctrl_data_path": ctrl_data_path,
-    "root_logdir": root_logdir
-}
-
-args = Struct(**parameters)
-assert args.input_size == args.n_sec_per_sample * args.sampling_rate, "input size is wrong!"
+args = get_parameters(platform)
 if args.platform == "Farahat":
     tf.enable_eager_execution()
     
@@ -114,6 +118,7 @@ if not args.if_scanning:
                                        sr=args.sampling_rate)
         
         # the model should be trained with the data from all rats at the same time. Not one after another.
+        
         model = AAE(args.input_size, args.h_dim, args.z_dim, args.run_logdir)
         model.print_trainable_weights_count()
         # model.plot_models()
