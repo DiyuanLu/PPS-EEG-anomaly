@@ -1,5 +1,3 @@
-import matplotlib
-matplotlib.use('Agg')
 import os
 import scipy
 
@@ -33,7 +31,7 @@ def scan_animals_with_pretrained_model(args):
         #
         animal_path = os.path.join(data_path, animal, animal)
     
-        run_logdir = args.root_logdir + os.path.basename(model_name)
+        run_logdir = os.path.join(args.root_logdir, os.path.basename(model_name))
         output_directory = run_logdir +  '/stats/'
         if not os.path.exists(output_directory):
             os.mkdir(output_directory)

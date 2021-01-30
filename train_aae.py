@@ -13,42 +13,48 @@ from scanning import scan_animals_with_pretrained_model
 
 
 def get_parameters(platform):
-    paths_platforms = {"Lu_laptop":{"pps_data_path":"C:/Users/LDY/Desktop/EPG/EPG_data/data/3d/PPS",
-                                    "ctrl_data_path": "C:/Users/LDY/Desktop/EPG/EPG_data/data/3d/control",
-                                    "root_logdir": "C:/Users/LDY/Desktop/EPG/EPG_data/results"
-                                    },
-                       "FIAS_cluster": {"pps_data_path": "/home/epilepsy-data/data/PPS-rats-from-Sebastian/PPS-Rats",
-                                        "ctrl_data_path": "/home/epilepsy-data/data/PPS-rats-from-Sebastian/Control-Rats",
-                                        "root_logdir": "/home/epilepsy-data/data/PPS-rats-from-Sebastian/resultsl-7rats"
-                                        },
-                       "Farahat": {"pps_data_path": '/home/farahat/Documents/data',
-                                   "ctrl_data_path": '/home/farahat/Documents/data', # TODO: your control dir
-                                   "root_logdir": '/home/farahat/Documents/my_logs'
-                                   }
-                       }
+    paths_platforms = {"Lu_laptop": {
+        "pps_data_path": "C:/Users/LDY/Desktop/EPG/EPG_data/data/3d/PPS",
+        "ctrl_data_path": "C:/Users/LDY/Desktop/EPG/EPG_data/data/3d/control",
+        "root_logdir": "C:/Users/LDY/Desktop/EPG/EPG_data/results"
+    },
+        "FIAS_cluster": {
+            "pps_data_path": "/home/epilepsy-data/data/PPS-rats-from-Sebastian/PPS-Rats",
+            "ctrl_data_path": "/home/epilepsy-data/data/PPS-rats-from-Sebastian/Control-Rats",
+            "root_logdir": "/home/epilepsy-data/data/PPS-rats-from-Sebastian/resultsl-7rats"
+        },
+        "Farahat": {
+            "pps_data_path": '/home/farahat/Documents/data',
+            "ctrl_data_path": '/home/farahat/Documents/data',
+            # TODO: your control dir
+            "root_logdir": '/home/farahat/Documents/my_logs'
+        }
+    }
     
     pps_data_path = paths_platforms[platform]["pps_data_path"]
     ctrl_data_path = paths_platforms[platform]["ctrl_data_path"]
     root_logdir = paths_platforms[platform]["root_logdir"]
     #
     parameters = {
-        "LOO": True, # False
-        "if_scanning": False,
+        "LOO": True,  # False
+        "if_scanning": True,
         "n_sec_per_sample": 1,
         "sampling_rate": 512,
-        "input_size" : 512,
+        "input_size": 512,
         "h_dim": 512,
         "z_dim": 16,
         "n_epochs": 100,
         "batch_size": 128,
-        "LOO_animals": ["32141"], # "32140", , "1276" "1275", "1276",["1275", "1276", "32140", "32141"],
+        "LOO_animals": ["32141"],
+        # "32140", , "1276" "1275", "1276",["1275", "1276", "32140", "32141"],
         "n_pps2use": 20,  # 20,
         "n_ctrl2use": 100,  # 100,
         "train_percentage": 0.9,
-        "pps_animals": ["1227", "1237", "1270", "1275", "1276", "32140", "32141"],#
+        "pps_animals": ["1227", "1237", "1270", "1275", "1276", "32140", "32141"],
+        #
         "ctrl_animals": ["3263", "3266", "3267"],
         "file_pattern": "new.csv",
-        "if_include_ctrl": True, # whether to include ctrl animals
+        "if_include_ctrl": True,  # whether to include ctrl animals
         
         # model related parameters
         "std": 0.1,
@@ -68,17 +74,18 @@ def get_parameters(platform):
     
     args = Struct(**parameters)
     assert args.input_size == args.n_sec_per_sample * args.sampling_rate, "input size is wrong!"
-
+    
     if args.platform == "Farahat":
         tf.enable_eager_execution()
-        
+    
     return args
 
+###########################################################################################
 # get parameters
 platform = "FIAS_cluster"
 args = get_parameters(platform)
+## Load yaml file
 
-    
 if not args.if_scanning:
     for LOO_animal in args.LOO_animals:
         # create output dir
@@ -139,10 +146,10 @@ if not args.if_scanning:
         f.close()
 else:
     args.models = [
-        "/home/epilepsy-data/data/PPS-rats-from-Sebastian/resultsl-7rats/run_EPG_anomaly_2021-01-25T20-14-42_pps20h_ctrl100h_LOO_32141",
-        "/home/epilepsy-data/data/PPS-rats-from-Sebastian/resultsl-7rats/run_EPG_anomaly_2021-01-25T18-30-22_pps20h_ctrl100h_LOO_32140",
-        "/home/epilepsy-data/data/PPS-rats-from-Sebastian/resultsl-7rats/run_EPG_anomaly_2021-01-25T16-21-26_pps20h_ctrl100h_LOO_1276",
-        "/home/epilepsy-data/data/PPS-rats-from-Sebastian/resultsl-7rats/run_EPG_anomaly_2021-01-25T14-54-25_pps20h_ctrl100h_LOO_1275"
+        "/home/epilepsy-data/data/PPS-rats-from-Sebastian/resultsl-7rats/run_dim_16_EPG_anomaly_2021-01-29T09-26-39_pps20h_ctrl100h_LOO_32141"
+        # "/home/epilepsy-data/data/PPS-rats-from-Sebastian/resultsl-7rats/run_dim_16_EPG_anomaly_2021-01-29T09-12-04_pps20h_ctrl100h_LOO_32140",
+        # "/home/epilepsy-data/data/PPS-rats-from-Sebastian/resultsl-7rats/run_dim_16_EPG_anomaly_2021-01-28T13-03-39_pps20h_ctrl100h_LOO_1276",
+        # "/home/epilepsy-data/data/PPS-rats-from-Sebastian/resultsl-7rats/run_dim_16_EPG_anomaly_2021-01-27T06-07-51_pps20h_ctrl100h_LOO_1275"
     ]
     scan_animals_with_pretrained_model(args)
 
