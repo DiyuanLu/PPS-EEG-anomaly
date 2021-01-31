@@ -214,7 +214,7 @@ def get_dirs_with_platform(platform):
         "ctrl_data_path": "C:/Users/LDY/Desktop/EPG/EPG_data/data/3d/control",
         "root_logdir": "C:/Users/LDY/Desktop/EPG/EPG_data/results"
     },
-        "FIAS_cluster": {
+        "FIAS": {
             "pps_data_path": "/home/epilepsy-data/data/PPS-rats-from-Sebastian/PPS-Rats",
             "ctrl_data_path": "/home/epilepsy-data/data/PPS-rats-from-Sebastian/Control-Rats",
             "root_logdir": "/home/epilepsy-data/data/PPS-rats-from-Sebastian/resultsl-7rats"
@@ -231,3 +231,27 @@ def get_dirs_with_platform(platform):
     root_logdir = paths_platforms[platform]["root_logdir"]
     
     return pps_data_path, ctrl_data_path, root_logdir
+
+
+
+def copy_save_all_files(args):
+    """
+    Copy and save all files related to model directory
+    :param args:
+    :return:
+    """
+    src_dir = '.'
+    save_dir = os.path.join(args.run_logdir, 'src')
+    if not os.path.exists(save_dir):  # if subfolder doesn't exist, should make the directory and then save file.
+        os.makedirs(save_dir)
+    req_extentions = ['py', 'yaml', "sh"]
+    for filename in os.listdir(src_dir):
+        exten = filename.split('.')[-1]
+        if exten in req_extentions:
+            src_file_name = os.path.join(src_dir, filename)
+            target_file_name = os.path.join(save_dir, filename)
+            with open(src_file_name, 'r') as file_src:
+                with open(target_file_name, 'w') as file_dst:
+                    for line in file_src:
+                        file_dst.write(line)
+    print('Done WithCopy File!')

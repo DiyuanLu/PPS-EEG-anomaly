@@ -9,47 +9,49 @@ import argparse
 
 from aae import AAE
 from input_pipeline import csv_reader_dataset, get_train_val_files, get_data_files_LOO
-from utils import get_run_logdir, plot_dict_loss, load_parameters, get_dirs_with_platform
+from utils import get_run_logdir, plot_dict_loss, load_parameters, get_dirs_with_platform, copy_save_all_files
 from scanning import scan_animals_with_pretrained_model
 
-# parser = argparse.ArgumentParser()
-# parser.add_argument(
-#     '--yaml_file', default="./parameters.yaml",
-#     help="Json file path for experiment parameters"
-# )
-# params = parser.parse_args()
-args = load_parameters("./parameters.yaml")
+parser = argparse.ArgumentParser()
+parser.add_argument(
+    '--yaml_file', default="./parameters.yaml",
+    help="Json file path for experiment parameters"
+)
+params = parser.parse_args()
+args = load_parameters(params.yaml_file)
 
-# data path related parameters
-args.pps_data_path, args.ctrl_data_path, args.root_logdir = get_dirs_with_platform(args.platform)
+if not args.if_to_cluster:
+    # data path related parameters
+    args.pps_data_path, args.ctrl_data_path, args.root_logdir = get_dirs_with_platform(args.platform)
+    args.run_logdir = get_run_logdir(args.root_logdir, args.LOO_animal, args)
 
 if args.platform == "Farahat":
     tf.enable_eager_execution()
-## Load yaml file
+
+# save all files to experiemnt run_logdir
+copy_save_all_files(args)
 
 if not args.if_scanning:
     # for LOO_animal in args.LOO_animals:
     # create output dir when it is not from cluster queue
-    if args.platform is
-    args.run_logdir = get_run_logdir(args.root_logdir, args.LOO_animal, args)
-    
+
     f = open(os.path.join(args.run_logdir, 'log_file.out'), 'w')
     sys.stdout = f
     
     train_files, valid_files = [], []
-    if_LOO_ctrl = True if "326" in LOO_animal else False  # determines whether it is in the LOO control rats case, then we need to get all pps data and only do LOO in control
+    if_LOO_ctrl = True if "326" in args.LOO_animal else False  # determines whether it is in the LOO control rats case, then we need to get all pps data and only do LOO in control
     if args.LOO:
         pps_train_files, pps_valid_files = get_data_files_LOO(
             args.pps_data_path, args,
             train_valid_split=True,
-            LOO_ID=LOO_animal,
+            LOO_ID=args.LOO_animal,
             if_LOO_ctrl=if_LOO_ctrl,
             current_folder="pps")
         if args.if_include_ctrl:  # Give the choice of excluding ctrl rats
             ctrl_train_files, ctrl_valid_files = get_data_files_LOO(
                 args.ctrl_data_path, args,
                 train_valid_split=True,
-                LOO_ID=LOO_animal,
+                LOO_ID=args.LOO_animal,
                 if_LOO_ctrl=if_LOO_ctrl,
                 current_folder="ctrl")
             train_files.extend(ctrl_train_files)
@@ -87,12 +89,6 @@ if not args.if_scanning:
     model.clear_model()
     f.close()
 else:
-    args.models = [
-        "/home/epilepsy-data/data/PPS-rats-from-Sebastian/resultsl-7rats/run_dim_16_EPG_anomaly_2021-01-29T09-26-39_pps20h_ctrl100h_LOO_32141"
-        # "/home/epilepsy-data/data/PPS-rats-from-Sebastian/resultsl-7rats/run_dim_16_EPG_anomaly_2021-01-29T09-12-04_pps20h_ctrl100h_LOO_32140",
-        # "/home/epilepsy-data/data/PPS-rats-from-Sebastian/resultsl-7rats/run_dim_16_EPG_anomaly_2021-01-28T13-03-39_pps20h_ctrl100h_LOO_1276",
-        # "/home/epilepsy-data/data/PPS-rats-from-Sebastian/resultsl-7rats/run_dim_16_EPG_anomaly_2021-01-27T06-07-51_pps20h_ctrl100h_LOO_1275"
-    ]
     scan_animals_with_pretrained_model(args)
 
     
