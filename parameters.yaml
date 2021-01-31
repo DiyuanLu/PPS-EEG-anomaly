@@ -1,5 +1,5 @@
 # TODO: These will be changed when submitting to cluster
-platform: "Lu_laptop"
+platform: "FIAS"
 if_to_cluster: False
 LOO_animal: "1275"
 ctrl_data_path: C:/Users/LDY/Desktop/EPG/EPG_data/data/3d/control
@@ -23,20 +23,20 @@ LOO_animals:
   - "32140"
   - "32141"
 
-n_pps2use: 10  # 20,
-n_ctrl2use: 10  # 100,
+n_pps2use: 15  # 20,
+n_ctrl2use: 80  # 100,
 train_percentage: 0.9
 pps_animals:
 - '1227'
 - '1275'
-#- '1237'
-#- '1270'
-#- '1276'
-#- '32140'
-#- '32141'
+- '1237'
+- '1270'
+- '1276'
+- '32140'
+- '32141'
 ctrl_animals:
 - '3263'
-#- '3266'
+- '3266'
 - '3267'
 file_pattern: "new.csv"
 if_include_ctrl: True  # whether to include ctrl animals
@@ -44,7 +44,7 @@ if_include_ctrl: True  # whether to include ctrl animals
 # model related parameters
 std: 0.1
 kernel_size: 5
-ae_loss_weight: 1.0
+ae_loss_weight: 0.9
 reg_loss_weight: 0.0
 gen_z_loss_weight: 1.0
 gen_x_loss_weight: 0.0
