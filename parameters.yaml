@@ -1,5 +1,5 @@
 # TODO: These will be changed when submitting to cluster
-platform: "FIAS"
+platform: "Lu_laptop"
 if_to_cluster: False
 LOO_animal: "1275"
 ctrl_data_path: C:/Users/LDY/Desktop/EPG/EPG_data/data/3d/control
@@ -9,7 +9,7 @@ run_logdir: C:/Users/LDY/Desktop/EPG/EPG_data/results\run_dim_16_EPG_anomaly_202
 
 # training parameters
 LOO: True  # False
-if_scanning: True   # TODO: True when testing
+if_scanning: False   # TODO: True when testing
 n_sec_per_sample: 1
 sampling_rate: 512
 input_size: 512
@@ -19,9 +19,9 @@ n_epochs: 100
 batch_size: 128
 LOO_animals:
   - "1227"
-  - "1237"
-  - "1270"
-  - "32141"
+#  - "1237"
+#  - "1270"
+#  - "32141"
 
 n_pps2use: 15  # 20,
 n_ctrl2use: 80  # 100,
@@ -29,14 +29,14 @@ train_percentage: 0.9
 pps_animals:
 - '1227'
 - '1275'
-- '1237'
-- '1270'
-- '1276'
-- '32140'
-- '32141'
+#- '1237'
+#- '1270'
+#- '1276'
+#- '32140'
+#- '32141'
 ctrl_animals:
 - '3263'
-- '3266'
+#- '3266'
 - '3267'
 file_pattern: "new.csv"
 if_include_ctrl: True  # whether to include ctrl animals

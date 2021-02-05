@@ -246,6 +246,193 @@ def csv_reader_dataset(filepaths, n_readers=5,
     dataset = dataset.batch(batch_size, drop_remainder=False)
     return dataset.prefetch(2)
 
+
+def csv_reader_dataset_testtest(filepaths, n_readers=5,
+                       n_read_threads=None, shuffle_buffer_size=10000,
+                       n_parse_threads=tf.data.experimental.AUTOTUNE,
+                       batch_size=32, shuffle=True, n_sec_per_sample=1,
+                       sr=512):
+    def read(line):
+        n_inputs = 2561
+        defs = [tf.constant([], dtype=tf.string)] + [0.] * n_inputs
+        fields = tf.io.decode_csv(line, record_defaults=defs)  # exclude filename and label
+        filename = fields[0]
+        label = fields[1]
+        x = tf.stack(fields[2:])
+        # x = tf.expand_dims(x, 1)
+        return filename, label, x
+    
+    def zscore_samples(fn, lb, x):
+        zscored_x = (x - tf.reduce_mean(x)) / (
+                tf.math.reduce_std(x) + np.finfo(np.float32).eps)
+        return fn, lb, zscored_x
+    
+    n_row_per_file = 720
+    dataset = tf.data.Dataset.list_files(filepaths, shuffle=shuffle)
+    shuffle_buffer_size = min(len(filepaths) * n_row_per_file, 10000)
+    if shuffle:
+        dataset = dataset.interleave(
+            lambda filepath: tf.data.TextLineDataset(filepath).skip(1),
+            # why skip 1?
+            cycle_length=n_readers,
+            num_parallel_calls=n_read_threads)
+        dataset = dataset.shuffle(shuffle_buffer_size)
+    else:
+        dataset = tf.data.TextLineDataset(dataset)
+    dataset = dataset.map(map_func=lambda x: read(x),
+                          num_parallel_calls=n_parse_threads)
+    dataset = dataset.map(zscore_samples, num_parallel_calls=n_parse_threads)
+    
+    # reshape the sample to 1 second
+    def reshape_to_k_sec(filename, label, x, n_sec=1, sr=512):
+        reshaped_x = tf.reshape(x[:(5 // n_sec) * n_sec * sr], (
+                5 // n_sec, n_sec * sr, 1))
+        filename = tf.cast(tf.repeat(filename, repeats=5//n_sec, axis=0), dtype=tf.string)
+        label = tf.repeat(label, repeats=5//n_sec, axis=0)
+        return filename, label, reshaped_x
+
+    def flat_map_reshaped(filename, label, feature):
+        filename = tf.data.Dataset.from_tensor_slices(filename)
+        label = tf.data.Dataset.from_tensor_slices(label)
+        feature = tf.data.Dataset.from_tensor_slices(feature)
+        return tf.data.Dataset.zip((filename, label, feature))
+    
+    dataset = dataset.map(
+        map_func=lambda fn, lb, x: reshape_to_k_sec(fn, lb, x, n_sec=n_sec_per_sample, sr=sr),
+        num_parallel_calls=n_parse_threads)
+    # dataset = dataset.flat_map(lambda x: tf.data.Dataset.from_tensor_slices(x))
+    dataset = dataset.flat_map(lambda fn, lb, x: flat_map_reshaped(fn, lb, x))
+    
+    dataset = dataset.shuffle(10000).batch(batch_size, drop_remainder=False)
+    return dataset.prefetch(2)
+
+
+#########################################################
+def v2_create_dataset(filenames, batch_size=32, shuffle=True,
+                      n_sec_per_sample=1, sr=512):
+    def decode_csv(line):
+        # Map function to decode the .csv file in TextLineDataset
+        # @param line object in TextLineDataset
+        # @return: zipped Dataset, (features, (label, filename, rat_id))
+        """
+        The defaults I copied from one of your previous emails.
+        As I don't work with arguments like sampling rate and seconds per row,
+        I simply put them in manually for my case (sampling rate 512 with 5 seconds
+        per row.
+        """
+    
+        defaults = [['']] + [[0.0]] * (
+                512 * 5 + 1)  # there are 5 sec in one row
+        csv_row = tf.compat.v1.decode_csv(line, record_defaults=defaults)
+    
+        filename = tf.cast(csv_row[0], tf.string)
+        label = tf.cast(csv_row[1], tf.int32)  # given the label
+        features = tf.stack(csv_row[2:])
+        
+        rat_id = tf.strings.to_number(tf.strings.substr(filename, 1, 2), out_type=tf.dtypes.int32)
+        # Apply the zscore transformation
+        mean = tf.reduce_mean(features)
+        std = tf.math.reduce_std(features)
+        zscore = (features - mean) / (std + 1e-13)
+    
+        return zscore, label, filename, rat_id
+
+        # reshape the sample to 1 second
+    def reshape_to_k_sec(feature, label, filename, rat_id, n_sec=1, sr=512):
+        reshaped_x = tf.reshape(feature[:(5 // n_sec) * n_sec * sr], (
+            5 // n_sec, n_sec * sr, 1))
+        filename = tf.cast(tf.repeat(filename, repeats=5 // n_sec, axis=0),
+                           dtype=tf.string)
+        label = tf.repeat(label, repeats=5 // n_sec, axis=0)
+        rat_id = tf.cast(tf.repeat(rat_id, repeats=5 // n_sec, axis=0),
+                                   dtype=tf.string)
+        return reshaped_x, label, filename, rat_id
+
+    def flat_map_reshaped(feature, label, filename, rat_id):
+        filename = tf.data.Dataset.from_tensor_slices(filename)
+        label = tf.data.Dataset.from_tensor_slices(label)
+        feature = tf.data.Dataset.from_tensor_slices(feature)
+        rat_id = tf.data.Dataset.from_tensor_slices(rat_id)
+        return tf.data.Dataset.zip((feature, label, filename, rat_id))
+
+    dataset = tf.data.Dataset.list_files(filenames)
+    # Apply the transformation method to all lines
+    dataset = dataset.interleave(lambda fn:
+                                    tf.data.TextLineDataset(fn).map(decode_csv))
+    
+    dataset = dataset.map(
+        map_func=lambda x, lb, fn, rat_id: reshape_to_k_sec(x, lb, fn, rat_id,
+                                                    n_sec=n_sec_per_sample,
+                                                    sr=sr))
+    dataset = dataset.flat_map(lambda x, lb, fn, rat_id: flat_map_reshaped(x, lb, fn, rat_id))
+    
+    dataset = dataset.shuffle(10000).batch(batch_size, drop_remainder=True)
+    
+    return dataset.prefetch(2)
+
+
+def v2_create_dataset(filenames, batch_size=32, shuffle=True,
+                      n_sec_per_sample=1, sr=512):
+    def decode_csv(line):
+        # Map function to decode the .csv file in TextLineDataset
+        # @param line object in TextLineDataset
+        # @return: zipped Dataset, (features, (label, filename, rat_id))
+        """
+        The defaults I copied from one of your previous emails.
+        As I don't work with arguments like sampling rate and seconds per row,
+        I simply put them in manually for my case (sampling rate 512 with 5 seconds
+        per row.
+        """
+        
+        defaults = [['']] + [[0.0]] * (
+                512 * 5 + 1)  # there are 5 sec in one row
+        csv_row = tf.compat.v1.decode_csv(line, record_defaults=defaults)
+        
+        filename = tf.cast(csv_row[0], tf.string)
+        label = tf.cast(csv_row[1], tf.int32)  # given the label
+        features = tf.stack(csv_row[2:])
+        
+        rat_id = tf.strings.to_number(tf.strings.substr(filename, 1, 2),
+                                      out_type=tf.dtypes.int32)
+        # Apply the zscore transformation
+        mean = tf.reduce_mean(features)
+        std = tf.math.reduce_std(features)
+        zscore = (features - mean) / (std + 1e-13)
+        
+        return zscore, label, filename, rat_id
+        
+        # reshape the sample to 1 second
+    
+    def reshape_to_k_sec(feature, label, filename, rat_id, n_sec=1, sr=512):
+        reshaped_x = tf.reshape(feature, (5 // n_sec, n_sec * sr, 1))
+        filename = ...
+        label = ...
+        rat_id = ...
+        return reshaped_x, label, filename, rat_id
+    
+    def flat_map_reshaped(feature, label, filename, rat_id):
+        feature = tf.data.Dataset.from_tensor_slices(feature)
+        filename = ...
+        label = ...
+        rat_id = ...
+        return ...
+    
+    dataset = tf.data.Dataset.list_files(filenames)
+    # Apply the transformation method to all lines
+    dataset = dataset.interleave(lambda fn:
+                                 tf.data.TextLineDataset(fn).map(decode_csv))
+    # every transformation can be mapped!
+    dataset = dataset.map(
+        map_func=lambda x, lb, fn, rat_id: reshape_to_k_sec(x, lb, fn, rat_id,
+                                                            n_sec=n_sec_per_sample,
+                                                            sr=sr))
+    dataset = dataset.flat_map(
+        lambda x, lb, fn, rat_id: flat_map_reshaped(x, lb, fn, rat_id))
+    
+    dataset = dataset.shuffle(10000).batch(batch_size, drop_remainder=True)
+    
+    return dataset.prefetch(2)
+
 ################## Lu Data input pipeline ##########################
 def get_train_test_files_split(root, fns, ratio,
                                rat_id="1227", label=0, num2use=100):

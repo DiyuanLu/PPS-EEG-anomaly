@@ -8,7 +8,7 @@ import tensorflow as tf
 import argparse
 
 from aae import AAE
-from input_pipeline import csv_reader_dataset, get_train_val_files, get_data_files_LOO
+from input_pipeline import csv_reader_dataset, get_train_val_files, get_data_files_LOO, csv_reader_dataset_testtest, v2_create_dataset
 from utils import get_run_logdir, plot_dict_loss, load_parameters, get_dirs_with_platform, copy_save_all_files
 from scanning import scan_animals_with_pretrained_model
 
@@ -65,10 +65,10 @@ if not args.if_scanning:
                                                        num2use=args.n_files2use,
                                                        log_dir=args.run_logdir)
     
-    train_set = csv_reader_dataset(train_files, batch_size=args.batch_size,
+    train_set = v2_create_dataset(train_files, batch_size=args.batch_size,
                                    n_sec_per_sample=args.n_sec_per_sample,
                                    sr=args.sampling_rate)
-    valid_set = csv_reader_dataset(valid_files, batch_size=args.batch_size,
+    valid_set = v2_create_dataset(valid_files, batch_size=args.batch_size,
                                    n_sec_per_sample=args.n_sec_per_sample,
                                    sr=args.sampling_rate)
     
