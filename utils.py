@@ -80,7 +80,7 @@ def get_run_logdir(root_logdir, animal, args):
     :return:n_pps2use
     """
     time_str = '{0:%Y-%m-%dT%H-%M-%S}'.format(datetime.now())
-    run_id = "run_dim_{}_EPG_anomaly_{}_pps{}h_ctrl{}h_LOO_{}".format(args.z_dim, time_str, args.n_pps2use, args.n_ctrl2use, animal)
+    run_id = "run_dim_{}_loss_weights_EPG_anomaly_{}_pps{}h_ctrl{}h_LOO_{}".format(args.z_dim, time_str, args.n_pps2use, args.n_ctrl2use, animal)
     path = os.path.join(root_logdir, run_id)
     os.mkdir(path)
     return path

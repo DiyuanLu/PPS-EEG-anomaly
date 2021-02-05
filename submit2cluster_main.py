@@ -80,8 +80,7 @@ if __name__ == "__main__":
 				ClusterQueue(LOO_animal, run_logdir, 15000, yaml_filename)
 		else:
 			models = [
-				"/home/epilepsy-data/data/PPS-rats-from-Sebastian/resultsl-7rats/run_dim_16_EPG_anomaly_2021-01-29T09-12-04_pps20h_ctrl100h_LOO_32140",
-				"/home/epilepsy-data/data/PPS-rats-from-Sebastian/resultsl-7rats/run_dim_16_EPG_anomaly_2021-01-28T13-03-39_pps20h_ctrl100h_LOO_1276"
+				"/home/epilepsy-data/data/PPS-rats-from-Sebastian/resultsl-7rats/run_dim_16_EPG_anomaly_2021-01-27T06-07-51_pps20h_ctrl100h_LOO_1275"
 			]
 			LOO_animals = [os.path.basename(dd).split("_")[-1] for dd in models]
 			args.pps_data_path = pps_data_path
