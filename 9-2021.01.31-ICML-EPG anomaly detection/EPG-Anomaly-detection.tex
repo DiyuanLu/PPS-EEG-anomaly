@@ -102,27 +102,22 @@
 	%Others have tried, but XX remains tough.  (Acknowledge related work.)
 	%
 	%In this work, we...
-	%
-	%As you write, keep in mind that MLHC papers are meant to be read by
-	%computer scientists and clinicians.  In the later sections, you might
-	%have to use some medical terminology that a computer scientist may not
-	%be familiar with, and you might have to use some math that a clinician
-	%might not be familiar with.  That's okay, as long as you've done your
-	%best to make sure that the core ideas can be understood by an informed
-	%reader in either community.
-	% Eearly diagnosis of epilepsy, mTLE
-	Early diagnosis of epilepsy before the first spontaneous seizure is essential to open the door to future care and timely treatment \cite{moshe2015epilepsy}. Since over 30\% of the epilepsy patients will become pharmaco-resistant and suffer from recurring seizures for the rest of their lives \citep{kwan2000early}. Hence, it is of great importance to identify patients with a high risk before epilepsy is fully established. There often is a latent latent period between the brain injury and the onset of the first spontaneous seizure (FSS). The term epileptogenesis (EPG) is the process where the healthy brain transformed to epileptic brain, capable of generating spontaneous recurring seizures \cite{loscher2019holy, pitkanen2014past}.  Over 30\% of the patients will be pharmaco-resistant and continue to suffer from recurring seizures despite intake of medications \citep{kwan2000early}. The more seizure episodes have occurred before the first clinical visit, the less effective of the treatment will be \citep{kwan2000early}. Hence, identifying the presence of EPG before the epilepsy is fully established would be of great importance. However, the process of EPG is still not fully understood \citep{pitkanen2016advances}. The precise time of onset of the brain being epileptogenic is untraceable.
+	There is nearly 1\% of the world's population will develop epilepsy and there is no pharmacological treatments that could prevent epilepsy. Roughly 30\% of these patients will become pharmaco-resistant \citep{kwan2000early}. Usually, there is a clinically-silent phase after the initial brain injury, during which the brain is undergoing a cascade of changes both functionally and structurally. That is when epileptogenesis (EPG) occurs. The term epileptogenesis (EPG) is the process where the healthy brain transformed to epileptic brain, capable of generating spontaneous recurring seizures \cite{loscher2019holy, pitkanen2014past}. Early diagnosis of epilepsy before the first spontaneous seizure (FSS) is essential to open the door to future care and timely treatment \cite{moshe2015epilepsy}. However, the process of EPG is still not fully understood \cite{pitkanen2016advances}. Eletroencephalography (EEG) is a popular tool in epilepsy research providing a high temporal resolution of the brain activity. The challenges are (1) it is extremely difficult to collect data from human patients in EPG. (2) individual responses to different brain injuries. (3) significantly individual representative features introduce huge variability. (4) there is no well-established EEG biomarker for epileptogenesis.
+	%We want to ask can we diagnose high risk patients already during this phase, so early treatment could become possible, which potentially could alter the progression of epilepsy? 
 	
-	Recently advances in machine learning (ML) and deep learning (DL) offers promising directions. Applying DL-based method to epilepsy research have delivered encouraging results. \cite{lu2020towards}
+	Recently advances in machine learning (ML) and deep learning (DL) offer promising directions. Applying DL-based method to epilepsy research have delivered encouraging results. \cite{lu2020towards, lu2020staging, rizzi2019changes}. However, these studies were conducted in a supervised-learning framework, where well-annotated data are crucial. When Lacking of annotations, one can turn to unsupervised learning to learn underlying statistics in the data. 	
+	Here, we proposed a more general framework for detecting brain disorders in a complete unsupervised fashion based on the idea of anomaly detection. The benefit of this approach is that there is no need for detailed annotations.
 	
-	Here, we proposed a more general framework for detecting brain disorders in a complete unsupervised fashion based on the idea of anomaly detection.
 	
 	% conventional anomaly detection
-	Anomaly detection (AD) is one class of problems applying supervised learning, semi-supervised, or unsupervised method to detect out of distribution samples given the availability of sample labels \cite{NEURIPS2019_805163a0}.
+	OC-SVD, SSVD
+	
 	
 	% classic anomaly detection
-	downside is to face the large and rapidly growing data size.
-	How to leverage deep learning for anomaly detection and apply to medical diagnosis is not clear.
+	With deep models are getting more and more attention, there are anomaly detection models 
+	reconstruction-based,
+	loglikelihood-based,
+	encoder-decoder-based with latent representation
 	
 	% the difference in medical anomaly detection with EEG
 	
@@ -137,47 +132,94 @@
 	
 	
 	\section{Related work}
+	% good \cite{serra2019input} \cite{kim2019rapp}
 	\subsection{Early Diagnosis of Epilepsy}
 	Early diagnosis of epilepsy holds great potential to address early treatment that could alter the disease progression, ultimately, saving lives, improving life quality of patients, alleviating huge social and financial burdens. However, obtaining models that could capture bio-markers releeant for epilepsy progression is challenging due to the lack of well-defined bio-markers and not well-known process. There have been an increasing research interest in this area \cite{lu2020towards, lu2020staging, rizzi2019changes}. Rizzi \textit{et al.} investigated the nonlinear dynamics of EEG signals and found a significant decrease of the so-called embedding dimension in early EPG that correlates with the severity of the ongoing EPG \cite{rizzi2019changes}.
 	\cite{lu2020towards} approaches the early diagnosis of epilepsy by designing a supervised two-class classification problem where a deep residual network is trained to distinguish data take from different phases during EPG. The model is 
 	\cite{lu2020staging} further extended the problem of distinguishing EEG data from healthy phase and EPG phase to staging the progress of EPG during the latent period.
 	
 	We propose a deep encoder-decoder-based model that aims to learn a manifold of nominal data before the disease-inducing brain injury.
+	
 	\subsection{Anomaly Detection}
 	% General research on AD --> time series AD --> autoencoder-based (reconstruction-based) AD 
 	% anomaly score
-	
-	Anomaly detection (AD) is a class of problems to detect samples that do not conform to the training data. It can be also viewed as one-class learning problem, where very often the access to the normal data is easier and that of anomalous data is difficult \cite{shen2020timeseries,ruff2019self,ruff2018deep,shen2020timeseries}. Commonly, AD is done in an unsupervised fashion \cite{references}.
+	Anomaly detection (AD) is one class of problems applying supervised learning, semi-supervised\cite{ruff2019deep}, or unsupervised method to detect out of distribution samples given the availability of sample labels \cite{NEURIPS2019_805163a0}. Typically, AD models try to detect samples that do not conform to the regularity from the training data. It can be also viewed as one-class learning problem, where very often the access to the normal data is easier and that of anomalous data is difficult \cite{shen2020timeseries,ruff2019self,ruff2018deep,shen2020timeseries}. 
+	\cite{ruff2019deep} DEEP SEMI-SUPERVISED ANOMALY DETECTION: deepSAD, an end-to-end deep learning framework for semi-supervised anomaly detection, where the model is trained to maximize the mutual information between the input data and the latent representation and a discounted label representation that is based on entropy. 
+	More commonly, AD is done in an unsupervised fashion \cite{references}.
 	
 	% classic anomaly detection OC-SVD, SSVD
-	
-	
-	% Deep learning-based AD methods. reconstruction-error-based, latent-vector-added, adversarial network-based
-	Reconstruction-error-based AD problems, the model is often trained with only nominal data and samples that can not be well reconstructed, i.e., with high reconstruction error, deemed to be anomalous.
-	\cite{su2019robust} Robust anomaly detection for multivariate time series through stochastic recurrent neural network,
-	\cite{malhotra2016lstm} LSTM-based encoder-decoder for multi-sensor anomaly detection (): proposed a reconstruction-error-based AD detection method where a LSTM encoder-decoder network is trained to reconstruct nominal time series data. The reconstruction error is used to estimate parameters of a Normal distribution $\mathcal{N}(\mu, \Sigma)$ through maximum likelihood estimation. 
-	\cite{lee2017training} training confidence-calibrated classifiers for detecting out-of-distribution samples: training confidence-calibrated classifiers for detecting out-of-distribution samples: they suggest two additional terms added to the original losses to first forces out-of-distribution samples to be less confident by the classifier and the second is to force more effective generation of training samples through a GAN network.
-	\cite{kim2019rapp} RaPP: Novelty detection with reconstruction along projection pathway: proposed a autoencoder-based AD method by comparing data not only in the input space but also in the embedding spaces. The anomaly score is defined as ,
-	\cite{hendrycks2016baseline} A baseline for detecting misclassified and out-of-distribution examples in neural networks: combining out-of-distribution detection with misclassification. The intuition is that the predicted probability of incorrect and out-of-distribution examples is often lower than that for correct examples.
-	\cite{abati2019latent}--latent space auto-regression for novelty detection: proposed a framework where a deep autoencoder equipped with a parametric density estimator, which could learn the probability distribution of the learned latent representations through an autoregressive procedure. In all experiments the novelty assessment on the i-th example is carried out by summing the reconstruction term (RECi) and the log-likelihood term (LLKi).
-	\cite{zhang2019deep},-A Deep Neural Network for Unsupervised Anomaly Detection and Diagnosis in Multivariate Time Series Data: the model characterizes system status with signature matrices, which represents the correlations between different pairs of time series at multi-scale resolution. Then spatial information is encoded through a conv-encoder and the temporal information is encoded by a attention-based convLSTM. The a conv-Decoder is implemented to reconstruct the signature matrices.
 	\cite{ruff2018deep}%https://github.com/nuclearboy95/Anomaly-Detection-Deep-SVDD-Tensorflow
 	Deep one-class classification: consider a neural network trained to minimize the volume of the hypersphere where the data representation vector resides. (in our work, we try to map the latent representation of the healthy data points to a prior distribution through the GAN graining)
-	\cite{ruff2019deep} DEEP SEMI-SUPERVISED ANOMALY DETECTION: deepSAD, an end-to-end deep learning framework for semi-supervised anomaly detection, where the model is trained to maximize the mutual information between the input data and the latent representation and a discounted label representation that is based on entropy. 
-	\cite{adams1995hitchhiker}. However, in our case, the signal is gradually evolving, which reflects the underlying changes taking place in the brain turning a healthy brain into an epileptic one. 
-	\cite{abati2019latent} general framework where we equip a deep autoencoder with a parametric density estimator that learns the probability distribution underlying its latent representations through an autoregressive procedure
-	\cite{qin2017dual} A Dual-Stage Attention-Based Recurrent Neural Network for Time Series Prediction: LSTM-based autoencoder to model the temporal correlation of time series data, which is trained to achieves good generalization capability
-	\cite{shen2020timeseries} Time series anomaly detection using temporal hierarchical one-class network: proposed a temporal hierarchical one-class network for time series anomaly detection, where a dilated recurrent neural network with skip connections is trained to capture temporal features in multiple scales. Then, multiple hypershperes are obtained through hierarchical clustering. The model is trained to minimize the distance of the encoded representation to be closer to the centroids of multi-scale-hyperspheres.
-	\cite{kumagai2019transfer} Transfer anomaly detection by inferring latent domain representations: proposed a method that could transfer the knowledge learned with data from related domains to the target domain to infer anomaly through the latent domain vectors. The anomaly score is based on the reconstruction of the autoencoder.
-	\cite{schirrmeister2020understanding} Understanding anomaly detection with deep invertible networks through hierarchies of distributions and features-failure explanation: when the discriminative features between inliers and outliers are on a high-level problem. It is based on log-likelihood-ratio-based anomaly detection method.
+	\cite{shen2020timeseries} Time series anomaly detection using temporal hierarchical one-class network: proposed a temporal hierarchical one-class network for time series anomaly detection, where a dilated recurrent neural network with skip connections is trained to capture temporal features in multiple scales. Then, multiple hypershperes are obtained through hierarchical clustering. The model is trained to minimize the distance of the encoded representation to be closer to the centroids of multi-scale-hyperspheres
 	\cite{gopalan2019pidforest} PIDForest: anomaly detection via partial identification: random-forest-based AD method, which partition the space into subcubes and the anomalous samples will lie in subcubes with high sparsity.
-	\cite{serra2019input} Input complexity an out-of-distribution detection with likelihood-based generative models-failure explanation: proposed an efficient and parameter-free anomaly score based on the estimation of the input complexity since likelihood-based generative models sometimes fail to detect certain forms of anomalous inputs that significantly differ from the training data. The anomaly score is based on the negative log-likelihood and the complexity estimate of the input, expressed in bits per dimension. 
+	
+	% Deep learning-based AD methods. reconstruction-error-based, latent-vector-added, adversarial network-based
+	Reconstruction-error-based AD models are very popular. These models are often trained with only nominal data and samples that can not be well reconstructed, i.e., with high reconstruction error, deemed to be anomalous \cite{kumagai2019transfer}.
+	\cite{kumagai2019transfer} Transfer anomaly detection by inferring latent domain representations: proposed a method that could transfer the knowledge learned with data from related domains to the target domain to infer anomaly through the latent domain vectors. The anomaly score is based on the reconstruction of the autoencoder.
+	
+	% loglikelihood-based method
+	\cite{malhotra2016lstm} LSTM-based encoder-decoder for multi-sensor anomaly detection (): proposed a reconstruction-error-based AD detection method where a LSTM encoder-decoder network is trained to reconstruct nominal time series data. The reconstruction error is used to estimate parameters of a Normal distribution $\mathcal{N}(\mu, \Sigma)$ through maximum likelihood estimation.
+	\cite{hendrycks2016baseline} A baseline for detecting misclassified and out-of-distribution examples in neural networks: combining out-of-distribution detection with misclassification. The intuition is that the predicted probability of incorrect and out-of-distribution examples is often lower than that for correct examples.
+	\cite{abati2019latent}--latent space auto-regression for novelty detection: proposed a framework where a deep autoencoder equipped with a parametric density estimator, which could learn the probability distribution of the learned latent representations through an autoregressive procedure. In all experiments the novelty assessment on the i-th example is carried out by summing the reconstruction term (RECi) and the log-likelihood term (LLKi).
+	\cite{schirrmeister2020understanding} Understanding anomaly detection with deep invertible networks through hierarchies of distributions and features-failure explanation: when the discriminative features between inliers and outliers are on a high-level problem. It is based on log-likelihood-ratio-based anomaly detection method.
+	\cite{serra2019input} Input complexity an out-of-distribution detection with likelihood-based generative models-failure explanation: proposed an efficient and parameter-free anomaly score based on the estimation of the input complexity since likelihood-based generative models sometimes fail to detect certain forms of anomalous inputs that significantly differ from the training data. The anomaly score is based on the negative log-likelihood and the complexity estimate of the input, expressed in bits per dimension.
 	\cite{ren2019likelihood} % show failure cases where model assign higher confidence to OOD than in-distribution
 	Likelihood ratios for out-of-distribution detection: proposed a likelihood ratio method, which trains a model to capture background statistics of known bacteria genome sequences in order to detect unseen bacteria. 
+	
+	% latent-code-based
+	\cite{abati2019latent} general framework where we equip a deep autoencoder with a parametric density estimator that learns the probability distribution underlying its latent representations through an autoregressive procedure.
 	\cite{ruff2019self} self attentive, multi-context one-class classification for unsupervised anomaly detection on text: proposed context vector data description method which leverages the learned word embedding from the pretrained model to perform AD on text data. The anomaly score is defined as the cosine distance of the contextual embedding to the respective context vector.
-	\cite{shipmon2017time} Time series anomaly detection-google: regression task to compare the predicted values and the ground truth. Use two sliding window to compute the mean and variance of the series of the difference between prediction and ground truth and the two sliding means and variance are used to compute the final anomaly score. 
+	
+	
+	% adversarial autoencoder based models
 	\cite{pidhorskyi2018generative} generative probabilistic novelty detection with adversarial autoencoders: encoder-decoder-based model, which is based on adversarial autoecoders. They leverage two discriminators to ensure the latent distribution and sample generation quality. 
-	\cite{schlegl2017unsupervised} Unsupervised anomaly detection with generative adversarial networks ot guide marker discovery: a deep convolutional generative adversarial network is trained to capture a manifold of normal anatomical variability in optical coherence tomography images of the retina. The anomaly score is defined as the weighted sum of residual loss, a measure of reconstruction error, and discrimination loss, a measure of how well the generated features match that of the training data. Different from \cite{schlegl2017unsupervised}
+	\cite{schlegl2017unsupervised} Unsupervised anomaly detection with generative adversarial networks ot guide marker discovery: a deep convolutional generative adversarial network is trained to capture a manifold of normal anatomical variability in optical coherence tomography images of the retina. The anomaly score is defined as the weighted sum of residual loss, a measure of reconstruction error, and discrimination loss, a measure of how well the generated features match that of the training data. Different from \cite{schlegl2017unsupervised}.
+	Similar to our approach. Additionally, we have a more flexible framework to aggregate different losses and to ensure robust generation, we add noise in the latent vector such that noisy latent code could also produce reasonably good generation.
+	
+	
+	% time series anomaly detection
+	industrial application \cite{su2019robust}
+	
+	\cite{su2019robust} Robust anomaly detection for multivariate time series through stochastic recurrent neural network: prediction reconstruction probability.
+	
+	% reconstruction with feature matching in all layers
+	\cite{kim2019rapp} RaPP: Novelty detection with reconstruction along projection pathway: proposed a autoencoder-based AD method by comparing data not only in the input space but also in the embedding spaces. The anomaly score is defined as Euclidean distances between the query and the reconstruction as well as all pairs of hidden representation of those two along the pathway.
+	\cite{zhang2019deep},-A Deep Neural Network for Unsupervised Anomaly Detection and Diagnosis in Multivariate Time Series Data: the model characterizes system status with signature matrices, which represents the correlations between different pairs of time series at multi-scale resolution. Then spatial information is encoded through a conv-encoder and the temporal information is encoded by a attention-based convLSTM. The a conv-Decoder is implemented to reconstruct the signature matrices.
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	 
+	\cite{lee2017training} training confidence-calibrated classifiers for detecting out-of-distribution samples: training confidence-calibrated classifiers for detecting out-of-distribution samples: they suggest two additional terms added to the original losses to first forces out-of-distribution samples to be less confident by the classifier and the second is to force more effective generation of training samples through a GAN network.
+	
+	
+	
+	
+	% survey of anomaly detection
+	\cite{ELGER2018279} 
+	However, in our case, the signal is gradually evolving, which reflects the underlying changes taking place in the brain turning a healthy brain into an epileptic one. 
+	
+	
+	
+	\cite{qin2017dual} A Dual-Stage Attention-Based Recurrent Neural Network for Time Series Prediction: LSTM-based autoencoder to model the temporal correlation of time series data, which is trained to achieves good generalization capability. ?????
+
+	
+	
+ 
+	
+	
+	\cite{shipmon2017time} Time series anomaly detection-google: regression task to compare the predicted values and the ground truth. Use two sliding window to compute the mean and variance of the series of the difference between prediction and ground truth and the two sliding means and variance are used to compute the final anomaly score. 
+	
+	
+	
+	
+	% AD for medical applications
 	\cite{zhou2019beatgan} BeatGAN: anomalous rhythm detection using adversarially generated time series: a GAN-based model trained on normal ECG traces is used for ECG anomaly detection. The anomaly score is defined as reconstruction error between the generator's output of a given input sample.
 	\cite{kalinichenko2014methods} methods for anomaly detection-- a survey CURE workshop:	
 	\cite{hendrycks2018deep} Deep anomaly detection with outlier exposure: proposed a method called outlier exposure, which leverages an auxiliary dataset of outliers while training the main AD model to classify whether a query is from in-distribution set or out-distribution set.
