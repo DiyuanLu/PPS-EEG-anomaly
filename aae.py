@@ -153,7 +153,6 @@ class AAE(tf.keras.Model):
     
         return model
 
-    
     def make_decoder_model(self):
         encoded = tf.keras.Input(shape=(self.z_dim, 1))
         reshaped_input = tf.keras.layers.Reshape((self.z_dim,1,1))(encoded)
@@ -267,7 +266,6 @@ class AAE(tf.keras.Model):
         print(model.summary(line_length=50))
         return model
 
-
     def autoencoder_loss(self, inputs, reconstruction, loss_weight):
         return loss_weight * self.mse(inputs, reconstruction)
 
@@ -283,12 +281,12 @@ class AAE(tf.keras.Model):
         z = self.encoder(sample)
         x = self.decoder(z)
         return x
+    
     def evaluate(self, test_set):
         # collect the information through all batches
         for batch, test_batch in enumerate(test_set):
             zscore, (label, filename, rat_id) = test_set
         
-
     def set_lr(self, decay, epoch):
         return self.base_lr * (1 / (1 + decay * epoch))
 

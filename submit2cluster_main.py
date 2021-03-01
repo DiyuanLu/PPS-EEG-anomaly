@@ -50,6 +50,7 @@ if __name__ == "__main__":
 		
 	# TODO: get parameters based on the platform
 	platform = "FIAS"
+	
 	pps_data_path, ctrl_data_path, root_logdir = get_dirs_with_platform(platform)
 	if_to_cluster = True
 	
@@ -57,14 +58,14 @@ if __name__ == "__main__":
 	args = load_parameters("./parameters.yaml")
 	args.platform = platform
 	
-	# want to make one LOO training as one job, or  one scanning testing as one job
+	# want to make each LOO training/scanning testing as one job
 	if if_to_cluster:
-		# load yaml file
 		args.if_to_cluster = True
-		if not args.if_scanning:
+		if not args.if_scanning:  # this case is pure training
 			for LOO_animal in args.LOO_animals:
 				# create yaml file in src folder, later save it to each individual logdir
 				# create output dir
+				# please change platform in parameters.yaml file every time you change the running platform
 				run_logdir = get_run_logdir(root_logdir, LOO_animal, args)
 				args.pps_data_path = pps_data_path
 				args.ctrl_data_path = ctrl_data_path
@@ -78,7 +79,8 @@ if __name__ == "__main__":
 				args.save_yaml(yaml_filename)
 				
 				ClusterQueue(LOO_animal, run_logdir, 15000, yaml_filename)
-		else:
+		else:  # this is for scanning
+			# list of the pretrained models
 			models = [
 				"/home/epilepsy-data/data/PPS-rats-from-Sebastian/resultsl-7rats/run_dim_16_EPG_anomaly_2021-01-27T06-07-51_pps20h_ctrl100h_LOO_1275"
 			]
