@@ -1,10 +1,7 @@
-from input_pipeline import csv_reader_dataset, get_data_files, get_all_data_files
+from input_pipeline import csv_reader_dataset, get_train_val_files, get_data_files_LOO
 from utils import get_run_logdir, KnuthMorrisPratt
 import numpy as np
-import tensorflow as tf
 import matplotlib.pyplot as plt
-import matplotlib
-matplotlib.use('Agg')
 import itertools
 import os
 import scipy
@@ -15,10 +12,6 @@ import pandas as pd
 from sklearn import metrics
 
 
-random_seed = 42
-tf.random.set_random_seed(random_seed)
-np.random.seed(random_seed)
-
 def compute_no_sequences(whole_errors, th99, window = 60, sequence=[1,1,1]):
     random_start = np.random.randint(0,len(whole_errors)-window*12)
     random_one_window = whole_errors[random_start:random_start+window*12]
@@ -26,8 +19,7 @@ def compute_no_sequences(whole_errors, th99, window = 60, sequence=[1,1,1]):
     subs = [y - x for x,y in zip(th,th[1:])]
     return len(list(KnuthMorrisPratt(subs, sequence)))
 
-def plot_roc(fpr, tpr, roc_auc, animal, title, output_directory):
-    # plt.figure()
+def plot_roc(fpr, tpr, roc_auc, animal, title):
     lw = 2
     plt.plot(fpr, tpr,
              lw=lw, label=animal+' (area = %0.2f)' % roc_auc)
@@ -38,25 +30,29 @@ def plot_roc(fpr, tpr, roc_auc, animal, title, output_directory):
     plt.ylabel('True Positive Rate')
     plt.title('ROC \n'+title)
     plt.legend(loc="lower right")
-    # plt.savefig(output_directory+title+'.png')
-    # plt.close()
 
 
-data_path = '/home/farahat/Documents/data/'
-root_logdir = '/home/farahat/Documents/my_logs/final6/'
-models = sorted([f for f in os.listdir(root_logdir)])
+
+root_logdir = '/home/farahat/Documents/my_logs/final_icml/'
+models = sorted([f for f in os.listdir(root_logdir) if os.path.isdir(os.path.join(root_logdir, f))])
 no_samples = 100
 window_in_minutes = 60
 sequence = [1,1]
 
+
+y_s = []
+no_v_re_s = []
+no_e_re_s = []
+no_v_d_s = []
+no_e_d_s = []
+
 for model_name in models[:]:
     print('working on: '+model_name)
-    animal = model_name[24:]
+    animal = model_name[40:]
     run_logdir = root_logdir + model_name
     output_directory = run_logdir +  '/stats/'
     if not os.path.exists(output_directory):
         os.mkdir(output_directory)
-
 
     whole_segment_t_errors = np.load(output_directory+'train_data/whole_segment_t_errors.npy')
     whole_segment_v_errors = np.load(output_directory+'valid_data/whole_segment_v_errors.npy')
@@ -70,17 +66,9 @@ for model_name in models[:]:
     th99 = np.percentile(whole_segment_t_errors, 99)
     th99_d = np.percentile(d_t, 99)
 
-    no_v_seq = []
-    no_e_seq = []
-
-    for i in range(no_samples):
-        no_v_seq.append(compute_no_sequences(whole_segment_v_errors, th99, window=window_in_minutes, sequence=sequence))
-        no_e_seq.append(compute_no_sequences(whole_segment_e_errors, th99, window=window_in_minutes, sequence=sequence))
-    no_v_seq = np.array(no_v_seq)
-    no_e_seq = np.array(no_e_seq)
 
     
-    window = int((window_in_minutes*60)/5)
+    window = int((window_in_minutes*60)/1)
 
     r = np.where(whole_segment_v_errors>th99, 1, 0)
     frequency_v = pd.Series(r).rolling(window).sum().dropna().values
@@ -100,44 +88,62 @@ for model_name in models[:]:
     no_v_d = frequency_v_d[idx_v]
     no_e_d = frequency_e_d[idx_e]
 
+    no_v_re_s.append(no_v_re)
+    no_e_re_s.append(no_e_re)
+    no_v_d_s.append(no_v_d)
+    no_e_d_s.append(no_e_d)
 
-
-    re_contrib = 0.8
-    no_v = list(re_contrib*no_v_re + (1 - re_contrib)*no_v_d)
-    no_e = list(re_contrib*no_e_re + (1 - re_contrib)*no_e_d)
-
-
-    re_contrib = 0.5
-    no_v_seq_re = list(re_contrib*no_v_re + (1 - re_contrib)*no_v_seq)
-    no_e_seq_re = list(re_contrib*no_e_re + (1 - re_contrib)*no_e_seq)
 
     y = list(np.zeros(no_samples))+list(np.ones(no_samples))
+    y_s.append(y)
 
 
-    fpr, tpr, thresholds = metrics.roc_curve(y, no_v+no_e)
+for k in range(len(models)):
+    no_v_re = no_v_re_s[k]
+    no_e_re = no_e_re_s[k]
+
+    y = y_s[k]
+
+    fpr, tpr, thresholds = metrics.roc_curve(y, list(no_v_re)+list(no_e_re))
     roc_auc = metrics.auc(fpr, tpr)
     print(thresholds)
-    plot_roc(fpr, tpr, roc_auc, animal, 'Average reconstruction errors and probability w.r.t the latent space distribution', output_directory)
+    plot_roc(fpr, tpr, roc_auc, animal, 'Only reconstruction errors')
 
-    # fpr, tpr, thresholds = metrics.roc_curve(y, list(no_v_re)+list(no_e_re))
-    # roc_auc = metrics.auc(fpr, tpr)
-    # print(thresholds)
-    # plot_roc(fpr, tpr, roc_auc, animal, 'Only reconstruction errors', output_directory)
-
-    # fpr, tpr, thresholds = metrics.roc_curve(y, list(no_v_d)+list(no_e_d))
-    # roc_auc = metrics.auc(fpr, tpr)
-    # print(thresholds)
-    # plot_roc(fpr, tpr, roc_auc, animal, 'Only probability w.r.t the latent space distribution', output_directory)
-
-    # fpr, tpr, thresholds = metrics.roc_curve(y, list(no_v_seq)+list(no_e_seq))
-    # roc_auc = metrics.auc(fpr, tpr)
-    # print(thresholds)
-    # plot_roc(fpr, tpr, roc_auc, animal, 'Only subsequent suprathreshold events', output_directory)
-
-    # fpr, tpr, thresholds = metrics.roc_curve(y, list(no_v_seq_re)+list(no_e_seq_re))
-    # roc_auc = metrics.auc(fpr, tpr)
-    # print(thresholds)
-    # plot_roc(fpr, tpr, roc_auc, animal, 'Average subsequent suprathreshold events and Reconstruction errors', output_directory)
-
-plt.savefig('1.png')
+plt.savefig(root_logdir+'Only reconstruction errors.png')
 plt.close()
+
+for k in range(len(models)):
+
+    no_v_d = no_v_d_s[k]
+    no_e_d = no_e_d_s[k]
+    y = y_s[k]
+
+    fpr, tpr, thresholds = metrics.roc_curve(y, list(no_v_d)+list(no_e_d))
+    roc_auc = metrics.auc(fpr, tpr)
+    print(thresholds)
+    plot_roc(fpr, tpr, roc_auc, animal, 'Only probability w.r.t the latent space distribution')
+
+plt.savefig(root_logdir+'Only probability w.r.t the latent space distribution.png')
+plt.close()
+
+for i in np.arange(0,1,0.1):
+    for k in range(len(models)):
+        no_v_re = no_v_re_s[k]
+        no_e_re = no_e_re_s[k]
+        no_v_d = no_v_d_s[k]
+        no_e_d = no_e_d_s[k]
+        y = y_s[k]
+
+        
+        re_contrib = i
+        no_v = re_contrib*no_v_re + (1 - re_contrib)*no_v_d
+        no_e = re_contrib*no_e_re + (1 - re_contrib)*no_e_d
+
+        fpr, tpr, thresholds = metrics.roc_curve(y, list(no_v)+list(no_e))
+        roc_auc = metrics.auc(fpr, tpr)
+        print(thresholds)
+        plot_roc(fpr, tpr, roc_auc, animal, 'Average reconstruction errors and probability w.r.t the latent space distribution_'+str(i))
+
+
+    plt.savefig(root_logdir+'Average reconstruction errors and probability w.r.t the latent space distribution_'+str(i)+'.png')
+    plt.close()
