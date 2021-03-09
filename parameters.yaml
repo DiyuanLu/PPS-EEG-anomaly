@@ -50,3 +50,6 @@ gen_z_loss_weight: 1.0
 gen_x_loss_weight: 0.0
 dc_loss_weight: 1.0
 
+encoder_mode: "MLP"
+dencoder_mode: "MLP"
+

@@ -15,11 +15,10 @@ np.random.seed(random_seed)
 
 
 # list the files
-<<<<<<< HEAD
 def get_data_files_from_folder(path, train_valid_split=True, train_percentage=0.8):
-=======
-def get_data_files(path, train_valid_split=True, train_percentage=0.8):
->>>>>>> 8ce8ed77edfcab718fddbc998f7a45306279d799
+
+# def get_data_files(path, train_valid_split=True, train_percentage=0.8):
+
     """
     Get files belong to one rat given the path
     :param path:
@@ -60,7 +59,6 @@ def get_all_data_files(data_path, test_animal, train_valid_split=True, train_per
         return files
 
 
-<<<<<<< HEAD
 # list the files
 def get_train_val_files(data_path, train_valid_split=True, train_percentage=0.8, num2use=None):
     """
@@ -179,8 +177,6 @@ def get_data_files_LOO(data_path, train_valid_split=True,
         np.random.shuffle(files_list)
         return files_list  # the valid list is empty
 
-=======
->>>>>>> 8ce8ed77edfcab718fddbc998f7a45306279d799
 def compute_data_parameters(files, dims=2560):
 
     sums = np.zeros((dims,))

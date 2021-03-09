@@ -13,17 +13,17 @@ np.random.seed(random_seed)
 
 class AAE(tf.keras.Model):
     
-    def __init__(self, input_size, h_dim, z_dim, run_logdir):
+    def __init__(self, args):  #, input_size, h_dim, z_dim, run_logdir
         super(AAE, self).__init__()
-        self.input_size = input_size
-        self.h_dim = h_dim
-        self.z_dim = z_dim
+        self.input_size = args.input_size
+        self.h_dim = args.h_dim
+        self.z_dim = args.z_dim
         self.kernel_size = 5
 
         self.es_delta = 0.001
         self.es_patience = 5
 
-        self.run_logdir = run_logdir
+        self.run_logdir = args.run_logdir
         self.n_critic_iterations = 1
         self.cross_entropy = tf.keras.losses.BinaryCrossentropy(from_logits=True)
         self.mse = tf.keras.losses.MeanSquaredError()
@@ -49,9 +49,13 @@ class AAE(tf.keras.Model):
         self.gen_z_loss_weight = 1.0
         self.gen_x_loss_weight = 0.0
         self.dc_loss_weight = 1.0
-                
-        self.encoder = self.make_encoder_model()
-        self.decoder = self.cnn_decoder()
+        
+        if args.encoder_mode == "MLP":
+            self.encoder = self.make_MLP_encoder()
+            self.decoder = self.make_MLP_decoder()
+        else:
+            self.encoder = self.make_encoder_model()
+            self.decoder = self.cnn_decoder()
         # self.decoder = self.make_decoder_model()
         self.discriminator_z = self.make_discriminator_z_model()
         self.discriminator_x = self.make_discriminator_x_model()
@@ -114,28 +118,64 @@ class AAE(tf.keras.Model):
         
         return model
 
-    def cnn_decoder(self):
+    def make_MLP_encoder(self):
+        input = tf.keras.layers.Input(shape=(self.input_size, 1))
+    
+        x = tf.keras.layers.Dense(300)(input)
+        x = tf.keras.layers.BatchNormalization()(x)
+        x = tf.keras.layers.ReLU()(x)
+        x = tf.keras.layers.Dense(150)(x)
+        x = tf.keras.layers.BatchNormalization()(x)
+        x = tf.keras.layers.ReLU()(x)
+        x = tf.keras.layers.Dense(128)(x)
+        x = tf.keras.layers.BatchNormalization()(x)
+        x = tf.keras.layers.ReLU()(x)
+        code = tf.keras.layers.Dense(self.z_dim)(x)
+        model = tf.keras.Model(inputs=input, outputs=code)
+        print('Encoder : ')
+        print(model.summary(line_length=50))
+    
+        return model
+    
+    
+    def make_MLP_decoder(self):
+        encoded = tf.keras.Input(shape=(self.z_dim, 1))
+        squeezed_input = tf.squeeze(encoded, axis=1)
+        x = tf.keras.layers.Dense(128)(squeezed_input)
+        x = tf.keras.layers.BatchNormalization()(x)
+        x = tf.keras.layers.ReLU()(x)
+        x = tf.keras.layers.Dense(256)(x)
+        x = tf.keras.layers.BatchNormalization()(x)
+        x = tf.keras.layers.ReLU()(x)
+        x = tf.keras.layers.Dense(512)(x)
+        x = tf.keras.layers.BatchNormalization()(x)
+        x = tf.keras.layers.ReLU()(x)
+        decoded = tf.keras.layers.Dense((self.input_size))(x)
+        decoded = tf.keras.layers.Reshape((self.input_size,1))(decoded)
+        model = tf.keras.Model(inputs=input, outputs=decoded)
+        print('Decoder : ')
+        print(model.summary(line_length=50))
+        return model
+
+
+    def make_cnn_decoder(self):
         encoded = tf.keras.Input(shape=(self.z_dim, 1))
         reshape_encoded = tf.keras.layers.Flatten()(encoded)
         net = tf.keras.layers.Dense(np.prod(self.encoder_b4_flatten))(reshape_encoded)  #the first dimension is -1 for batch size expand_to_match_encode convolution
         conv2d_shape = np.insert(self.encoder_b4_flatten, 1, 1)
         net =  tf.keras.layers.Reshape(conv2d_shape)(net)
         net = tf.keras.layers.Conv2DTranspose(128, (self.kernel_size,1), strides=(2,1),  padding='same', dilation_rate=1)(net)
-
         net = tf.keras.layers.BatchNormalization()(net)
         net = tf.keras.layers.ReLU()(net)
         
-
         net = tf.keras.layers.Conv2DTranspose(64, (self.kernel_size,1), strides=(2,1),  padding='same', dilation_rate=1)(net)
         net = tf.keras.layers.BatchNormalization()(net)
         net = tf.keras.layers.ReLU()(net)
         
-
         net = tf.keras.layers.Conv2DTranspose(32, (self.kernel_size,1), strides=(2,1),  padding='same', dilation_rate=1)(net)
         net = tf.keras.layers.BatchNormalization()(net)
         net = tf.keras.layers.ReLU()(net)
         
-
         net = tf.keras.layers.Conv2DTranspose(16, (self.kernel_size,1), strides=(2,1),  padding='same', dilation_rate=1)(net)
         net = tf.keras.layers.BatchNormalization()(net)
         net = tf.keras.layers.ReLU()(net)
@@ -156,7 +196,6 @@ class AAE(tf.keras.Model):
         print(model.summary(line_length=50))
     
         return model
-    
     
     def make_decoder_model(self):
         encoded = tf.keras.Input(shape=(self.z_dim, 1))
@@ -510,6 +549,95 @@ class AAE(tf.keras.Model):
         """clear current session. Reinitialize a new model"""
         tf.keras.backend.clear_session()
 
+
+class VAE_MLP(object):
+    
+    def __init__(self, args):
+        """
+        args.time_steps
+        args.num_dim
+        args.num_hidden
+        args.keep_prob
+        args.lamdaldy
+        args.gamma
+        args.tolerance
+        """
+        self._build_net(args)
+        self.__dict__.update((k, v) for k, v in args.__dict__.items())
+        # "latent_dim": 128,
+        # "enc_units": [512, 256, 128],
+        # "dec_units": [128, 256, 512],
+        # "drop_fc": 0.5,
+        # "kl_ratio": 0.001
+        #
+    def _build_net(self, args):
+        self.enc_input = tf.compat.v1.placeholder(tf.float32,
+                                                  shape=[None, args.height],
+                                                  name="input_feature")
+        self.enc_label = tf.compat.v1.placeholder(tf.float32,
+                                                  shape=[None, args.num_classes],
+                                                  name="input_label")
+        self.dec_input = tf.compat.v1.placeholder(tf.float32,
+                                                  shape=[None, args.latent_dim],
+                                                  name="dec_input")
+        self.dec_label = tf.compat.v1.placeholder(tf.float32,
+                                                  shape=[None, args.num_classes],
+                                                  name="dec_label")
+        
+        # encoding
+        self.mu, self.sigma = self.encoder(self.enc_input, args)
+        # sampling by re-parameterization technique
+        self.z = sample_z(self.mu, self.sigma)
+        
+        # decoding
+        self.reconstruction = self.decoder(self.z, args)
+        self.gen_spec = self.decoder(self.dec_input, args)
+        with tf.compat.v1.variable_scope("vae_loss",
+                                         reuse=tf.compat.v1.AUTO_REUSE):
+            """ recostruction error """
+            self.recon_loss = tf.losses.mean_squared_error(self.enc_input,
+                                                           self.reconstruction)
+            # self.recon_loss = - tf.reduce_sum(self.input * tf.log(self.dec_output + 1e-7) + (1 - self.input) * tf.log(1 - self.dec_output + 1e-7), reduction_indices=1)
+            
+            self.KL_loss = -args.kl_ratio * 0.5 * tf.reduce_sum(
+                1 + self.sigma - tf.square(self.mu) - tf.exp(self.sigma), axis=-1)
+            
+            self.loss = tf.reduce_sum(self.recon_loss + self.KL_loss)
+        
+        self.train_op = tf.compat.v1.train.AdamOptimizer(args.learning_rate,
+                                                         0.9).minimize(self.loss)
+        
+        self.recon_diff = self.reconstruction - self.enc_input
+    
+    def make_MLP_encoder(self, input, args, name="encoder"):
+        net = input
+        with tf.compat.v1.variable_scope(name,
+                                         reuse=tf.compat.v1.AUTO_REUSE) as scope:
+            for dim in args.enc_units:  #512, 256, 128
+                net = tf.compat.v1.layers.dense(inputs=net, units=dim,
+                                                activation=tf.nn.relu)
+                net = tf.compat.v1.layers.dropout(net, rate=args.drop_fc)
+                print(name, "net shape", net.get_shape().as_list())
+        z_mu = tf.compat.v1.layers.dense(inputs=net, units=args.latent_dim,
+                                         activation=None)
+        z_sigma = tf.compat.v1.layers.dense(inputs=net, units=args.latent_dim,
+                                            activation=None)
+        print(name, "z_mu shape", z_mu.get_shape().as_list())
+        return z_mu, z_sigma
+    
+    def make_MLP_decoder(self, z, args, name="decoder"):
+        net = z
+        with tf.compat.v1.variable_scope(name,
+                                         reuse=tf.compat.v1.AUTO_REUSE) as scope:
+            for dim in args.dec_units:  #[128, 256, 512]
+                net = tf.compat.v1.layers.dense(inputs=net, units=dim,
+                                                activation=tf.nn.relu)
+                net = tf.compat.v1.layers.dropout(net, rate=args.drop_fc)
+                print(name, "net shape", net.get_shape().as_list())
+            reconstruction = tf.compat.v1.layers.dense(inputs=net,
+                                                       units=args.height,
+                                                       activation=None)
+        return reconstruction
 
 
 
