@@ -77,7 +77,7 @@ for LOO_animal in LOO_animals:
     # train_set = train_set.take(150)   # what does this do?
     
     # the model should be trained with the data from all rats at the same time. Not one after another.
-    model = AAE(input_size, args, h_dim, z_dim, run_logdir)
+    model = AAE(input_size,  h_dim, z_dim, run_logdir)
     # model.print_trainable_weights_count()
     model.plot_models()
     metrics = model.train(n_epochs, train_set, valid_set)

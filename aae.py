@@ -13,17 +13,17 @@ np.random.seed(random_seed)
 
 class AAE(tf.keras.Model):
     
-    def __init__(self, args):  #, input_size, h_dim, z_dim, run_logdir
+    def __init__(self, input_size, h_dim, z_dim, run_logdir):  #
         super(AAE, self).__init__()
-        self.input_size = args.input_size
-        self.h_dim = args.h_dim
-        self.z_dim = args.z_dim
+        self.input_size = input_size
+        self.h_dim = h_dim
+        self.z_dim = z_dim
         self.kernel_size = 5
 
         self.es_delta = 0.001
         self.es_patience = 5
 
-        self.run_logdir = args.run_logdir
+        self.run_logdir = run_logdir
         self.n_critic_iterations = 1
         self.cross_entropy = tf.keras.losses.BinaryCrossentropy(from_logits=True)
         self.mse = tf.keras.losses.MeanSquaredError()
@@ -50,12 +50,11 @@ class AAE(tf.keras.Model):
         self.gen_x_loss_weight = 0.0
         self.dc_loss_weight = 1.0
         
-        if args.encoder_mode == "MLP":
-            self.encoder = self.make_MLP_encoder()
-            self.decoder = self.make_MLP_decoder()
-        else:
-            self.encoder = self.make_encoder_model()
-            self.decoder = self.cnn_decoder()
+        self.encoder = self.make_MLP_encoder()
+        self.decoder = self.make_MLP_decoder()
+
+        # self.encoder = self.make_encoder_model()
+        # self.decoder = self.cnn_decoder()
         # self.decoder = self.make_decoder_model()
         self.discriminator_z = self.make_discriminator_z_model()
         self.discriminator_x = self.make_discriminator_x_model()
