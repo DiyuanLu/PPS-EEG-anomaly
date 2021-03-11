@@ -12,6 +12,15 @@ import pandas as pd
 from sklearn import metrics
 
 
+root_logdir = '/home/farahat/Documents/my_logs/final_64_0.1/'
+# root_logdir = '/home/epilepsy-data/data/PPS-rats-from-Sebastian/resultsl-7rats/final_icml/'
+models = sorted([f for f in os.listdir(root_logdir) if os.path.isdir(os.path.join(root_logdir, f))])
+no_samples = 1000
+window_in_minutes = 60
+sequence = [1,1]
+th_percentile = 99
+
+
 def compute_no_sequences(whole_errors, th99, window = 60, sequence=[1,1,1]):
     random_start = np.random.randint(0,len(whole_errors)-window*12)
     random_one_window = whole_errors[random_start:random_start+window*12]
@@ -21,8 +30,12 @@ def compute_no_sequences(whole_errors, th99, window = 60, sequence=[1,1,1]):
 
 def plot_roc(fpr, tpr, roc_auc, animal, title):
     lw = 2
-    plt.plot(fpr, tpr,
-             lw=lw, label=animal+' (area = %0.2f)' % roc_auc)
+    if "326" in animal:
+        plt.plot(fpr, tpr,
+                lw=lw, label=animal+' (area = %0.2f)' % roc_auc, linestyle='--')
+    else:
+        plt.plot(fpr, tpr,
+                lw=lw, label=animal+' (area = %0.2f)' % roc_auc)        
     plt.plot([0, 1], [0, 1], color='navy', lw=lw, linestyle='--')
     plt.xlim([0.0, 1.0])
     plt.ylim([0.0, 1.05])
@@ -30,15 +43,6 @@ def plot_roc(fpr, tpr, roc_auc, animal, title):
     plt.ylabel('True Positive Rate')
     plt.title('ROC \n'+title)
     plt.legend(loc="lower right")
-
-
-
-root_logdir = '/home/farahat/Documents/my_logs/final_icml/'
-models = sorted([f for f in os.listdir(root_logdir) if os.path.isdir(os.path.join(root_logdir, f))])
-no_samples = 100
-window_in_minutes = 60
-sequence = [1,1]
-
 
 y_s = []
 no_v_re_s = []
@@ -63,8 +67,8 @@ for model_name in models[:]:
     d_e = np.load(output_directory+'epg_data/distances.npy')
 
 
-    th99 = np.percentile(whole_segment_t_errors, 99)
-    th99_d = np.percentile(d_t, 99)
+    th99 = np.percentile(whole_segment_t_errors, th_percentile)
+    th99_d = np.percentile(d_t, th_percentile)
 
 
     
@@ -75,10 +79,20 @@ for model_name in models[:]:
     r = np.where(whole_segment_e_errors>th99, 1, 0)
     frequency_e = pd.Series(r).rolling(window).sum().dropna().values
 
+    # plt.figure(figsize=(100,20))
+    # plt.plot(list(frequency_v)+list(frequency_e), c='orange')
+    # plt.plot(frequency_v ,c='black')
+    # plt.savefig(root_logdir+'hour_avg.png')
     r = np.where(d_v>th99_d, 1, 0)
     frequency_v_d = pd.Series(r).rolling(window).sum().dropna().values
     r = np.where(d_e>th99_d, 1, 0)
     frequency_e_d = pd.Series(r).rolling(window).sum().dropna().values
+
+    # frequency_v = pd.Series(whole_segment_v_errors).rolling(window).sum().dropna().values
+    # frequency_e = pd.Series(whole_segment_e_errors).rolling(window).sum().dropna().values
+    # frequency_v_d = pd.Series(d_v).rolling(window).sum().dropna().values
+    # frequency_e_d = pd.Series(d_e).rolling(window).sum().dropna().values    
+
 
     idx_v = np.random.choice(frequency_v.shape[0], no_samples)
     idx_e = np.random.choice(frequency_e.shape[0], no_samples)
@@ -98,7 +112,8 @@ for model_name in models[:]:
     y_s.append(y)
 
 
-for k in range(len(models)):
+for k, model_name in enumerate(models):
+    animal = model_name[40:]
     no_v_re = no_v_re_s[k]
     no_e_re = no_e_re_s[k]
 
@@ -112,8 +127,8 @@ for k in range(len(models)):
 plt.savefig(root_logdir+'Only reconstruction errors.png')
 plt.close()
 
-for k in range(len(models)):
-
+for k, model_name in enumerate(models):
+    animal = model_name[40:]
     no_v_d = no_v_d_s[k]
     no_e_d = no_e_d_s[k]
     y = y_s[k]
@@ -127,7 +142,8 @@ plt.savefig(root_logdir+'Only probability w.r.t the latent space distribution.pn
 plt.close()
 
 for i in np.arange(0,1,0.1):
-    for k in range(len(models)):
+    for k, model_name in enumerate(models):
+        animal = model_name[40:]
         no_v_re = no_v_re_s[k]
         no_e_re = no_e_re_s[k]
         no_v_d = no_v_d_s[k]

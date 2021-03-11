@@ -1,7 +1,9 @@
 
 import tensorflow as tf
 import time
-tf.enable_eager_execution()
+# tf.enable_eager_execution()
+physical_devices = tf.config.list_physical_devices('GPU') 
+tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
 import pdb
 import numpy as np
@@ -13,18 +15,18 @@ np.random.seed(random_seed)
 
 class AAE(tf.keras.Model):
     
-    def __init__(self, input_size, h_dim, z_dim, run_logdir):  #
+    def __init__(self, input_size, h_dim, z_dim, run_logdir):
         super(AAE, self).__init__()
         self.input_size = input_size
         self.h_dim = h_dim
         self.z_dim = z_dim
         self.kernel_size = 5
 
-        self.es_delta = 0.001
-        self.es_patience = 5
+        self.es_delta = 0.0001
+        self.es_patience = 2
 
         self.run_logdir = run_logdir
-        self.n_critic_iterations = 1
+        self.n_critic_iterations = 2
         self.cross_entropy = tf.keras.losses.BinaryCrossentropy(from_logits=True)
         self.mse = tf.keras.losses.MeanSquaredError()
         self.mae = tf.keras.losses.MeanAbsoluteError()
@@ -44,20 +46,129 @@ class AAE(tf.keras.Model):
         self.gen_z_optimizer = tf.keras.optimizers.Adam(learning_rate=self.base_lr, beta_1=0.5)
         self.gen_x_optimizer = tf.keras.optimizers.Adam(learning_rate=self.base_lr, beta_1=0.5)
 
-        self.ae_loss_weight = 1.0
+        self.ae_loss_weight = 0.99
         self.reg_loss_weight = 0.0
-        self.gen_z_loss_weight = 1.0
+        self.gen_z_loss_weight = 0.01
         self.gen_x_loss_weight = 0.0
         self.dc_loss_weight = 1.0
         
-        self.encoder = self.make_MLP_encoder()
-        self.decoder = self.make_MLP_decoder()
+        self.kernels = [5,5,5,5]
+        self.strides = [2,1,2,1]
+        self.filters = [64,128,256,512]
+        self.num_RUs = [2,2,2,2]
+        self.activation = 'relu'
 
+        self.encoder = self.create_res_encoder()
+        self.decoder = self.create_res_decoder()
         # self.encoder = self.make_encoder_model()
         # self.decoder = self.cnn_decoder()
         # self.decoder = self.make_decoder_model()
         self.discriminator_z = self.make_discriminator_z_model()
         self.discriminator_x = self.make_discriminator_x_model()
+
+    def create_residual_unit(self, inputs, filters, i, j, strides=1, kernel_size=3, change_dims=False, transpose=False, batch_norm=True):
+        if transpose:
+            conv = tf.keras.layers.Conv2DTranspose
+        else:
+            conv = tf.keras.layers.Conv2D
+        
+        if batch_norm:
+            bn = tf.keras.layers.BatchNormalization
+        else:
+            bn = tf.keras.layers.BatchNormalization
+            
+        main_layers = [
+            conv(filters, (5,1), strides=(strides,1), padding="same", use_bias=False, dilation_rate=1, name='conv_'+str(i)+'_'+str(j)+'_1'),
+            bn(),
+            tf.keras.layers.Activation(self.activation, name='relu_'+str(i)+'_'+str(j)+'_1'),
+
+            conv(filters, (kernel_size,1), strides=(1,1), padding="same", use_bias=False, dilation_rate=1, name='conv_'+str(i)+'_'+str(j)+'_2'),
+            bn(),
+            ]
+
+        skip_layers = []
+        if strides > 1 or change_dims:
+            skip_layers = [
+                conv(filters, (1,1), strides=(strides,1),
+                padding="same", use_bias=False),
+                bn()
+                ]
+
+        Z = inputs
+        for layer in main_layers:
+            Z = layer(Z)
+        skip_Z = inputs
+        for layer in skip_layers:
+            skip_Z = layer(skip_Z)
+        return tf.keras.layers.Activation(self.activation, name='relu_'+str(i)+'_'+str(j)+'_2')(Z + skip_Z)
+
+
+    def create_res_decoder(self):
+        first_filter = 64
+
+        # inputs = tf.keras.layers.Input(shape=(self.z_dim, 1))
+        # reshape_encoded = tf.keras.layers.Flatten()(inputs)
+        # net = tf.keras.layers.Dense(np.prod(self.encoder_flatten))(reshape_encoded)  #the first dimension is -1 for batch size expand_to_match_encode convolution
+        # # conv2d_shape = np.insert(self.encoder_flatten, 1)
+        # net =  tf.keras.layers.Reshape(self.encoder_flatten)(net)
+
+        inputs = tf.keras.layers.Input(shape=(self.z_dim, 1))
+        x = tf.keras.layers.Reshape((self.z_dim, 1, 1))(inputs)
+        x = tf.keras.layers.Conv2DTranspose(first_filter, (5,1), strides=(1,1), padding="same", dilation_rate=1, use_bias=False, name='conv_0')(x)
+        x = tf.keras.layers.BatchNormalization()(x)
+        x = tf.keras.layers.Activation(self.activation, name='relu_0')(x)
+        num_RUs = self.num_RUs
+        kernels = self.kernels
+        filters = self.filters
+        strides = self.strides
+        for i in range(len(num_RUs)):
+            for j in range(num_RUs[i]):
+                if filters[i] != first_filter:
+                    change_dims = True
+                else:
+                    change_dims = False
+                if j==0:
+                    x = self.create_residual_unit(x, filters[i], i+1, j+1, strides=strides[i], kernel_size=kernels[i],
+                                                  change_dims=change_dims, transpose=True, batch_norm=False)
+                else:
+                    x = self.create_residual_unit(x, filters[i], i+1, j+1, strides=1, kernel_size=1, transpose=True, batch_norm=False)
+                first_filter = filters[i]
+        x = tf.keras.layers.Conv2D(1, (1,1), strides=(1,1), padding="same", use_bias=False)(x)
+        x = tf.keras.layers.Reshape((self.input_size,1))(x)
+        model = tf.keras.models.Model(inputs, x)
+        return model
+    
+    def create_res_encoder(self):
+        first_filter = 64
+        inputs = tf.keras.layers.Input(shape=(self.input_size, 1))
+        x = tf.keras.layers.Reshape((self.input_size, 1, 1))(inputs)
+        x = tf.keras.layers.Conv2D(first_filter, (5,1), strides=(1,1), padding="same", use_bias=False, dilation_rate=1, name='conv_0')(x)
+        x = tf.keras.layers.BatchNormalization()(x)
+        x = tf.keras.layers.Activation(self.activation, name='relu_0')(x)
+        num_RUs = self.num_RUs
+        kernels = self.kernels
+        filters = self.filters
+        strides = self.strides
+        for i in range(len(num_RUs)):
+            for j in range(num_RUs[i]):
+                if filters[i] != first_filter:
+                    change_dims = True
+                else:
+                    change_dims = False
+                if j==0:
+                    x = self.create_residual_unit(x, filters[i], i+1, j+1, strides=strides[i], kernel_size=kernels[i], change_dims=change_dims)
+                else:
+                    x = self.create_residual_unit(x, filters[i], i+1, j+1, strides=1, kernel_size=1)
+                first_filter = filters[i]
+
+        # self.encoder_flatten = x.get_shape().as_list()[1:]
+        # x = tf.keras.layers.Flatten()(x)
+        # x = tf.keras.layers.Dense(self.z_dim)(x)
+        x = tf.keras.layers.Conv2D(1, (1,1), strides=(1,1), padding="same", use_bias=False)(x)
+        x = tf.keras.layers.BatchNormalization()(x)
+        x = tf.keras.layers.Reshape((self.z_dim,))(x)
+        model = tf.keras.models.Model(inputs, x)
+        return model
 
     def make_encoder_model(self):
         input = tf.keras.layers.Input(shape=(self.input_size, 1))
@@ -164,17 +275,21 @@ class AAE(tf.keras.Model):
         conv2d_shape = np.insert(self.encoder_b4_flatten, 1, 1)
         net =  tf.keras.layers.Reshape(conv2d_shape)(net)
         net = tf.keras.layers.Conv2DTranspose(128, (self.kernel_size,1), strides=(2,1),  padding='same', dilation_rate=1)(net)
+
         net = tf.keras.layers.BatchNormalization()(net)
         net = tf.keras.layers.ReLU()(net)
         
+
         net = tf.keras.layers.Conv2DTranspose(64, (self.kernel_size,1), strides=(2,1),  padding='same', dilation_rate=1)(net)
         net = tf.keras.layers.BatchNormalization()(net)
         net = tf.keras.layers.ReLU()(net)
         
+
         net = tf.keras.layers.Conv2DTranspose(32, (self.kernel_size,1), strides=(2,1),  padding='same', dilation_rate=1)(net)
         net = tf.keras.layers.BatchNormalization()(net)
         net = tf.keras.layers.ReLU()(net)
         
+
         net = tf.keras.layers.Conv2DTranspose(16, (self.kernel_size,1), strides=(2,1),  padding='same', dilation_rate=1)(net)
         net = tf.keras.layers.BatchNormalization()(net)
         net = tf.keras.layers.ReLU()(net)
@@ -195,6 +310,7 @@ class AAE(tf.keras.Model):
         print(model.summary(line_length=50))
     
         return model
+    
     
     def make_decoder_model(self):
         encoded = tf.keras.Input(shape=(self.z_dim, 1))
@@ -365,19 +481,19 @@ class AAE(tf.keras.Model):
             decoder_output = self.decoder(encoder_output, training=True)
             ae_loss = self.autoencoder_loss(batch_x, decoder_output, self.ae_loss_weight)
 
-            dc_z_fake = self.discriminator_z(encoder_output, training=True)[0]
-            gen_z_loss = self.generator_loss(dc_z_fake, self.gen_z_loss_weight)
+            # dc_z_fake = self.discriminator_z(encoder_output, training=True)[0]
+            # gen_z_loss = self.generator_loss(dc_z_fake, self.gen_z_loss_weight)
 
-            real_distribution = tf.random.normal([tf.cast(batch_x.shape[0], dtype=tf.int32), self.z_dim, 1], mean=0.0, stddev=self.std)
+            # real_distribution = tf.random.normal([tf.cast(batch_x.shape[0], dtype=tf.int32), self.z_dim, 1], mean=0.0, stddev=self.std)
             # weights = np.ones(len(self.norm_params), dtype=np.float64) / len(self.norm_params)
             # mixture_idx = np.random.choice(len(weights), size=batch_x.shape[0], replace=True, p=weights)
             # real_distribution = tf.convert_to_tensor([np.random.normal(self.norm_params[idx], self.std, size=(self.z_dim,)) for idx in mixture_idx], dtype=tf.float32)
 
             # real_distribution = tf.random.normal([tf.cast(batch_x.shape[0], dtype=tf.int32), self.z_dim, 1], mean=0.0, stddev=1.0)
-            generator_output = self.decoder(real_distribution, training=True)
-            dc_x_fake = self.discriminator_x(generator_output, training=True)[0]
-            gen_x_loss = self.generator_loss(dc_x_fake, self.gen_x_loss_weight)                       
-
+            # generator_output = self.decoder(real_distribution, training=True)
+            # dc_x_fake = self.discriminator_x(generator_output, training=True)[0]
+            # gen_x_loss = self.generator_loss(dc_x_fake, self.gen_x_loss_weight)                       
+            gen_x_loss = 0
             
             # new_batch_x = []
             # for i in range(batch_x.shape[0]): 
@@ -389,7 +505,7 @@ class AAE(tf.keras.Model):
             # encoder_output_augmented = self.encoder(new_batch_x, training=True)
             # reg_loss = self.autoencoder_loss(encoder_output, encoder_output_augmented, self.reg_loss_weight)
 
-            final_loss = ae_loss + gen_x_loss + gen_z_loss
+            final_loss = ae_loss
 
         ae_grads = ae_tape.gradient(final_loss, self.encoder.trainable_variables + self.decoder.trainable_variables)
         self.ae_optimizer.apply_gradients(zip(ae_grads, self.encoder.trainable_variables + self.decoder.trainable_variables))
@@ -414,49 +530,52 @@ class AAE(tf.keras.Model):
             self.dc_z_optimizer.apply_gradients(zip(dc_z_grads, self.discriminator_z.trainable_variables))
 
             # Discriminator x
-            with tf.GradientTape(persistent=False) as dc_x_tape:
-                # encoder_output = self.encoder(batch_x, training=True)
+            # with tf.GradientTape(persistent=False) as dc_x_tape:
+            #     encoder_output = self.encoder(batch_x, training=True)
 
-                real_distribution = tf.random.normal([tf.cast(batch_x.shape[0], dtype=tf.int32), self.z_dim, 1], mean=0.0, stddev=self.std)
-                # weights = np.ones(len(self.norm_params), dtype=np.float64) / len(self.norm_params)
-                # mixture_idx = np.random.choice(len(weights), size=batch_x.shape[0], replace=True, p=weights)
-                # real_distribution = tf.convert_to_tensor([np.random.normal(self.norm_params[idx], self.std, size=(self.z_dim,1)) for idx in mixture_idx], dtype=tf.float32)
+            #     # real_distribution = tf.random.normal([tf.cast(batch_x.shape[0], dtype=tf.int32), self.z_dim, 1], mean=0.0, stddev=self.std)
+            #     # weights = np.ones(len(self.norm_params), dtype=np.float64) / len(self.norm_params)
+            #     # mixture_idx = np.random.choice(len(weights), size=batch_x.shape[0], replace=True, p=weights)
+            #     # real_distribution = tf.convert_to_tensor([np.random.normal(self.norm_params[idx], self.std, size=(self.z_dim,1)) for idx in mixture_idx], dtype=tf.float32)
 
-                # real_distribution = tf.random.normal([tf.cast(batch_x.shape[0], dtype=tf.int32), self.z_dim, 1], mean=0.0, stddev=1.0)
-                decoder_output = self.decoder(real_distribution, training=True)
-                dc_x_real = self.discriminator_x(batch_x, training=True)[0]
-                dc_x_fake = self.discriminator_x(decoder_output, training=True)[0]
-                dc_x_loss_real, dc_x_loss_fake, dc_x_loss = self.discriminator_loss(dc_x_real, dc_x_fake, self.dc_loss_weight)
-                dc_x_acc = self.accuracy_x(tf.concat([tf.ones_like(dc_x_real), tf.zeros_like(dc_x_fake)], axis=0), tf.sigmoid(tf.concat([dc_x_real, dc_x_fake], axis=0)))
-            dc_x_grads = dc_x_tape.gradient(dc_x_loss, self.discriminator_x.trainable_variables)
-            self.dc_x_optimizer.apply_gradients(zip(dc_x_grads, self.discriminator_x.trainable_variables))
+            #     # real_distribution = tf.random.normal([tf.cast(batch_x.shape[0], dtype=tf.int32), self.z_dim, 1], mean=0.0, stddev=1.0)
+            #     decoder_output = self.decoder(encoder_output, training=True)
+            #     dc_x_real = self.discriminator_x(batch_x, training=True)[0]
+            #     dc_x_fake = self.discriminator_x(decoder_output, training=True)[0]
+            #     dc_x_loss_real, dc_x_loss_fake, dc_x_loss = self.discriminator_loss(dc_x_real, dc_x_fake, self.dc_loss_weight)
+            #     dc_x_acc = self.accuracy_x(tf.concat([tf.ones_like(dc_x_real), tf.zeros_like(dc_x_fake)], axis=0), tf.sigmoid(tf.concat([dc_x_real, dc_x_fake], axis=0)))
+            # dc_x_grads = dc_x_tape.gradient(dc_x_loss, self.discriminator_x.trainable_variables)
+            # self.dc_x_optimizer.apply_gradients(zip(dc_x_grads, self.discriminator_x.trainable_variables))
+            dc_x_loss_real, dc_x_acc, dc_x_loss_fake, dc_x_loss = 0,0,0,0
+
+
 
         # # Generator z(Encoder)
-        # with tf.GradientTape() as gen_z_tape:
-        #     encoder_output = self.encoder(batch_x, training=True)
-        #     dc_z_fake = self.discriminator_z(encoder_output, training=True)[0]
+        with tf.GradientTape() as gen_z_tape:
+            encoder_output = self.encoder(batch_x, training=True)
+            dc_z_fake = self.discriminator_z(encoder_output, training=True)[0]
 
-        #     # dc_z_fake = self.discriminator_z(encoder_output, training=True)[1]
-        #     # real_distribution = tf.random.normal([tf.cast(batch_x.shape[0], dtype=tf.int32), self.z_dim, 1], mean=0.0, stddev=1.0)
-        #     # dc_z_real = self.discriminator_z(real_distribution, training=True)[1]
-        #     # gen_z_loss = self.autoencoder_loss(dc_z_real, dc_z_fake, self.gen_z_loss_weight)
+            # dc_z_fake = self.discriminator_z(encoder_output, training=True)[1]
+            # real_distribution = tf.random.normal([tf.cast(batch_x.shape[0], dtype=tf.int32), self.z_dim, 1], mean=0.0, stddev=1.0)
+            # dc_z_real = self.discriminator_z(real_distribution, training=True)[1]
+            # gen_z_loss = self.autoencoder_loss(dc_z_real, dc_z_fake, self.gen_z_loss_weight)
 
-        #     gen_z_loss = self.generator_loss(dc_z_fake, self.gen_z_loss_weight)
-        # gen_z_grads = gen_z_tape.gradient(gen_z_loss, self.encoder.trainable_variables)
-        # self.gen_z_optimizer.apply_gradients(zip(gen_z_grads, self.encoder.trainable_variables))
+            gen_z_loss = self.generator_loss(dc_z_fake, self.gen_z_loss_weight)
+        gen_z_grads = gen_z_tape.gradient(gen_z_loss, self.encoder.trainable_variables)
+        self.gen_z_optimizer.apply_gradients(zip(gen_z_grads, self.encoder.trainable_variables))
 
-        # # Generator x(Encoder)
+        # Generator x(Encoder)
         # with tf.GradientTape() as gen_x_tape:
-        #     # encoder_output = self.encoder(batch_x, training=True)
+        #     encoder_output = self.encoder(batch_x, training=True)
         #     # real_distribution = tf.random.normal([tf.cast(batch_x.shape[0], dtype=tf.int32), self.z_dim, 1], mean=0.0, stddev=1.0)
-        #     weights = np.ones(len(self.norm_params), dtype=np.float64) / len(self.norm_params)
-        #     mixture_idx = np.random.choice(len(weights), size=batch_x.shape[0], replace=True, p=weights)
-        #     real_distribution = tf.convert_to_tensor([np.random.normal(self.norm_params[idx], self.std, size=(self.z_dim,1)) for idx in mixture_idx], dtype=tf.float32)
+        #     # weights = np.ones(len(self.norm_params), dtype=np.float64) / len(self.norm_params)
+        #     # mixture_idx = np.random.choice(len(weights), size=batch_x.shape[0], replace=True, p=weights)
+        #     # real_distribution = tf.convert_to_tensor([np.random.normal(self.norm_params[idx], self.std, size=(self.z_dim,1)) for idx in mixture_idx], dtype=tf.float32)
 
         #     # norm_prior = tf.random.normal([tf.cast(batch_x.shape[0], dtype=tf.int32), 40-self.z_dim, 1], mean=0.0, stddev=1.0)
         #     # decoder_input = tf.concat([encoder_output, norm_prior], 1)
 
-        #     decoder_output = self.decoder(real_distribution, training=True)
+        #     decoder_output = self.decoder(encoder_output, training=True)
         #     dc_x_fake = self.discriminator_x(decoder_output, training=True)[0]
 
         #     # dc_x_fake = self.discriminator_x(decoder_output, training=True)[1]
@@ -541,6 +660,8 @@ class AAE(tf.keras.Model):
                 wait +=1
                 if wait >= self.es_patience:
                     return metrics
+
+                                     
 
         return metrics
     
@@ -637,7 +758,6 @@ class VAE_MLP(object):
                                                        units=args.height,
                                                        activation=None)
         return reconstruction
-
 
 
 

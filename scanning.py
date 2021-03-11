@@ -2,6 +2,8 @@ from input_pipeline import csv_reader_dataset, get_data_files_from_folder, get_a
 from utils import get_run_logdir
 import numpy as np
 import tensorflow as tf
+physical_devices = tf.config.list_physical_devices('GPU') 
+tf.config.experimental.set_memory_growth(physical_devices[0], True)
 # tf.enable_eager_execution()
 import matplotlib.pyplot as plt
 import matplotlib
@@ -20,20 +22,23 @@ random_seed = 42
 tf.random.set_seed(random_seed)
 np.random.seed(random_seed)
 
+precomputed = True
 LOO = True
-data_path = "/home/epilepsy-data/data/PPS-rats-from-Sebastian/PPS-Rats/"
-root_logdir = '/home/farahat/Documents/my_logs/final_icml/'
-# root_logdir = '/home/farahat/Documents/my_logs/'
+data_path_general = "/home/epilepsy-data/data/PPS-rats-from-Sebastian/"
+root_logdir = '/home/farahat/Documents/my_logs/final_1/'
 batch_size = 512
 models = sorted([f for f in os.listdir(root_logdir)])
-# models = ['run_2020_01_27-12_38_39_1227']
-z_dim = 16
+z_dim = 64
 
-for model_name in models[1:]:
+for model_name in models[:]:
     print('working on: '+model_name)
 
     animal = model_name[40:]
     # animal_path = data_path+animal
+    if "326" in animal:
+        data_path = data_path_general + 'Control-Rats/'
+    else:
+        data_path = data_path_general + 'PPS-Rats/'
     animal_path = os.path.join(data_path, animal, animal)
 
     run_logdir = root_logdir + model_name
@@ -100,10 +105,11 @@ for model_name in models[1:]:
         # np.save(directory+'/probilities.npy', probilities)
         np.save(directory+'/distances.npy', distances)
         np.save(directory+'/z.npy', z_all[1:,:])       
-
-    compute_distros(train_set, output_directory+'train_data')
-    compute_distros(valid_set, output_directory+'valid_data')
-    compute_distros(epg_set, output_directory+'epg_data')
+    
+    if not precomputed:
+        compute_distros(train_set, output_directory+'train_data')
+        compute_distros(valid_set, output_directory+'valid_data')
+        compute_distros(epg_set, output_directory+'epg_data')
 
     ####################################################################
 

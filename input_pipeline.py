@@ -16,9 +16,6 @@ np.random.seed(random_seed)
 
 # list the files
 def get_data_files_from_folder(path, train_valid_split=True, train_percentage=0.8):
-
-# def get_data_files(path, train_valid_split=True, train_percentage=0.8):
-
     """
     Get files belong to one rat given the path
     :param path:
@@ -124,7 +121,7 @@ def get_data_files_LOO(data_path, train_valid_split=True,
         animals = PPS_animals
     elif current_folder == "Ctrl" and not if_LOO_ctrl:  #then get all data BL + EPG
         animals = Ctrl_animals
-    elif current_folder == "Ctrl" and not if_LOO_ctrl:   # then leave one animal, get BL + EPG
+    elif current_folder == "Ctrl" and if_LOO_ctrl:   # then leave one animal, get BL + EPG
         Ctrl_animals.remove(LOO_ID)
         animals = Ctrl_animals
         
@@ -232,7 +229,7 @@ def csv_reader_dataset(filepaths, n_readers=5,
     dataset = dataset.map(map_func=lambda x: reshape_to_k_sec(x, n_sec=n_sec_per_sample, sr=sr), num_parallel_calls=n_parse_threads)
     dataset = dataset.flat_map(lambda x: tf.data.Dataset.from_tensor_slices(x))
     # dataset = dataset.map(lambda x: (x,x) , num_parallel_calls=n_parse_threads)
-
+    
     dataset = dataset.batch(batch_size, drop_remainder=False)
     return dataset.prefetch(2)
 

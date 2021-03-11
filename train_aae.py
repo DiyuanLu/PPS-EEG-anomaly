@@ -32,13 +32,17 @@ root_logdir = paths_platforms["Farahat"]["root_logdir"]
 n_sec_per_sample = 1
 sampling_rate = 512
 input_size = n_sec_per_sample * sampling_rate
-
-h_dim = 512
-z_dim = 16
+h_dim = 1024
+z_dim = 128
 n_epochs=100
-
 batch_size = 128
+
+# LOO_animals = ["1275", "1276"]
+# LOO_animals = ["32140", "32141"]
+# LOO_animals = ["3263", "3266", "3267"]
 LOO_animals = ["1227", "1237", "1270"]
+
+
 n_files2use = 5
 
 
@@ -49,14 +53,14 @@ for LOO_animal in LOO_animals:
     if LOO:
         PPS_train_files, PPS_valid_files = get_data_files_LOO(PPS_data_path,
                                                               train_valid_split=True,
-                                                              train_percentage=0.9, num2use=15,
+                                                              train_percentage=0.9, num2use=30,
                                                               LOO_ID=LOO_animal,
                                                               if_LOO_ctrl=if_LOO_ctrl,
                                                               current_folder="PPS")
         Ctrl_train_files, Ctrl_valid_files = get_data_files_LOO(Ctrl_data_path,
                                                                 train_valid_split=True,
                                                                 train_percentage=0.9,
-                                                                num2use=100,
+                                                                num2use=60,
                                                                 LOO_ID=LOO_animal,
                                                                 if_LOO_ctrl=if_LOO_ctrl,
                                                                 current_folder="Ctrl")
@@ -77,7 +81,7 @@ for LOO_animal in LOO_animals:
     # train_set = train_set.take(150)   # what does this do?
     
     # the model should be trained with the data from all rats at the same time. Not one after another.
-    model = AAE(input_size,  h_dim, z_dim, run_logdir)
+    model = AAE(input_size, h_dim, z_dim, run_logdir)
     # model.print_trainable_weights_count()
     model.plot_models()
     metrics = model.train(n_epochs, train_set, valid_set)
@@ -86,7 +90,6 @@ for LOO_animal in LOO_animals:
     plot_dict_loss(metrics, run_logdir)
     # model.save()
     model.clear_model()
-
     
     
     

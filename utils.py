@@ -1,3 +1,5 @@
+import warnings
+warnings.filterwarnings("ignore")
 import matplotlib.pyplot as plt
 import os
 import pdb
@@ -6,6 +8,7 @@ import tensorflow as tf
 import numpy as np
 from sklearn.manifold import TSNE
 # tf.enable_eager_execution()
+
 
 def plot_errors(errors, path, err='reconstruction'):
     fig = plt.figure(figsize=(15,10))
