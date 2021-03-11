@@ -9,19 +9,19 @@ from utils import predict_validation_samples, plot_samples, plot_latent_space, s
 
 class AAE(tf.keras.Model):
     
-    def __init__(self, input_size, h_dim, z_dim, run_logdir):
+    def __init__(self, args):  #input_size, h_dim, z_dim, run_logdir
         super(AAE, self).__init__()
 
-        self.input_size = input_size
-        self.h_dim = h_dim
-        self.z_dim = z_dim
+        self.input_size = args.input_size
+        self.h_dim = args.h_dim
+        self.z_dim = args.z_dim
         self.kernel_size = 5
         
 
         self.es_delta = 0.001
         self.es_patience = 5
 
-        self.run_logdir = run_logdir
+        self.run_logdir = args.run_logdir
         self.n_critic_iterations = 1
         self.cross_entropy = tf.keras.losses.BinaryCrossentropy(from_logits=True)
         self.mse = tf.keras.losses.MeanSquaredError()
@@ -54,15 +54,58 @@ class AAE(tf.keras.Model):
         self.gen_z_loss_weight = 0.04
         self.gen_x_loss_weight = 0.04
         self.dc_loss_weight = 1.0
-                
-        self.encoder = self.make_encoder_model()
-        self.decoder = self.cnn_decoder()
+        
+        
+        if args.encoder_mode == "MLP":
+            self.encoder = self.make_MLP_encoder(args)
+            self.decoder = self.make_MLP_decoder(args)
+        else:
+            self.encoder = self.make_encoder_model()
+            self.decoder = self.make_cnn_decoder()
         # self.decoder = self.make_decoder_model()
         self.discriminator_z = self.make_discriminator_z_model()
         self.discriminator_x = self.make_discriminator_x_model()
 
+    def make_MLP_encoder(self, args):
+        input = tf.keras.layers.Input(shape=(self.input_size, 1))
+        x = input
+        
+        for units in args.model["MLP"]["enc_units"]:
+            x = tf.keras.layers.Dense(units)(x)
+            x = tf.keras.layers.BatchNormalization()(x)
+            x = tf.keras.layers.ReLU()(x)
+        # x = tf.keras.layers.Dense(150)(x)
+        # x = tf.keras.layers.BatchNormalization()(x)
+        # x = tf.keras.layers.ReLU()(x)
+        # x = tf.keras.layers.Dense(128)(x)
+        # x = tf.keras.layers.BatchNormalization()(x)
+        # x = tf.keras.layers.ReLU()(x)
+        code = tf.keras.layers.Dense(self.z_dim)(x)
+        model = tf.keras.Model(inputs=input, outputs=code)
+        print('Encoder : ')
+        print(model.summary(line_length=50))
+    
+        return model
+
+    def make_MLP_decoder(self, args):
+        encoded = tf.keras.Input(shape=(self.z_dim))
+        # x = tf.squeeze(encoded, axis=1)
+        x = encoded
+        for units in args.model["MLP"]["dec_units"]:
+            x = tf.keras.layers.Dense(units)(x)
+            x = tf.keras.layers.BatchNormalization()(x)
+            x = tf.keras.layers.ReLU()(x)
+
+        decoded = tf.keras.layers.Dense((self.input_size))(x)
+        decoded = tf.keras.layers.Reshape((self.input_size, 1))(decoded)
+        model = tf.keras.Model(inputs=encoded, outputs=decoded)
+        print('Decoder : ')
+        print(model.summary(line_length=50))
+        return model
+
     def make_encoder_model(self):
         input = tf.keras.layers.Input(shape=(self.input_size, 1))
+        
 
         conv1 = tf.keras.layers.Conv1D(16, self.kernel_size, strides=2, padding='same', dilation_rate=1)(input)
         conv1 = tf.keras.layers.BatchNormalization()(conv1)
@@ -119,7 +162,7 @@ class AAE(tf.keras.Model):
         
         return model
 
-    def cnn_decoder(self):
+    def make_cnn_decoder(self):
         encoded = tf.keras.Input(shape=(self.z_dim, 1))
         reshape_encoded = tf.keras.layers.Flatten()(encoded)
         net = tf.keras.layers.Dense(np.prod(self.encoder_b4_flatten))(reshape_encoded)  #the first dimension is -1 for batch size expand_to_match_encode convolution
@@ -446,7 +489,7 @@ class AAE(tf.keras.Model):
             epoch_gen_z_loss_avg = tf.compat.v2.metrics.Mean(name='Gen loss_z')
             epoch_dc_z_loss_avg = tf.compat.v2.metrics.Mean(name='Disc loss_z')
 
-            for batch, (batch_x) in enumerate(train_set):
+            for batch, batch_x in enumerate(train_set):
                 ae_loss, dc_z_loss, dc_z_acc, dc_x_loss, dc_x_acc, gen_z_loss, gen_x_loss, dc_z_loss_real, dc_z_loss_fake, dc_x_loss_real, dc_x_loss_fake = self.train_step(batch_x)
 
                 metrics['ae_losses'].append(ae_loss)

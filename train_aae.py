@@ -8,7 +8,7 @@ import tensorflow as tf
 import argparse
 
 from aae import AAE
-from input_pipeline import csv_reader_dataset, get_train_val_files, get_data_files_LOO, csv_reader_dataset_testtest, v2_create_dataset
+from input_pipeline import csv_reader_dataset, get_train_val_files, get_data_files_LOO, v2_create_dataset
 from utils import get_run_logdir, plot_dict_loss, load_parameters, get_dirs_with_platform, copy_save_all_files
 from scanning import scan_animals_with_pretrained_model
 
@@ -24,9 +24,6 @@ if not args.if_to_cluster:
     # data path related parameters
     args.pps_data_path, args.ctrl_data_path, args.root_logdir = get_dirs_with_platform(args.platform)
     args.run_logdir = get_run_logdir(args.root_logdir, args.LOO_animal, args)
-
-if args.platform == "Farahat":
-    tf.enable_eager_execution()
 
 # save all files to experiemnt run_logdir
 copy_save_all_files(args)
@@ -74,7 +71,7 @@ if not args.if_scanning:
     
     # the model should be trained with the data from all rats at the same time. Not one after another.
     
-    model = AAE(args.input_size, args.h_dim, args.z_dim, args.run_logdir)
+    model = AAE(args) #args.input_size, args.h_dim, args.z_dim, args.run_logdir)
     model.print_trainable_weights_count()
     # model.plot_models()
     metrics = model.train(args.n_epochs, train_set, valid_set)

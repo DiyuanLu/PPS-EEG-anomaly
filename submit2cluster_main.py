@@ -39,15 +39,15 @@ def _to_arg(flag, v):
 ############################################################################################3
 if __name__ == "__main__":
 	# Creating the flags to be passed to classifier.py
-	# Get all parameters and generate the output folders
-	dict_file = [{'sports': ['soccer', 'football', 'basketball', 'cricket',
-	                         'hockey', 'table tennis']},
-	             {'countries': ['Pakistan', 'USA', 'India', 'China', 'Germany',
-	                            'France', 'Spain']}]
-	
-	# with open(r'E:\data\store_file.yaml', 'w') as file:
-	# 	documents = yaml.dump(dict_file, file)
-		
+	# # Get all parameters and generate the output folders
+	# dict_file = [{'sports': ['soccer', 'football', 'basketball', 'cricket',
+	#                          'hockey', 'table tennis']},
+	#              {'countries': ['Pakistan', 'USA', 'India', 'China', 'Germany',
+	#                             'France', 'Spain']}]
+	#
+	# # with open(r'E:\data\store_file.yaml', 'w') as file:
+	# # 	documents = yaml.dump(dict_file, file)
+	#
 	# TODO: get parameters based on the platform
 	platform = "FIAS"
 	
@@ -78,7 +78,7 @@ if __name__ == "__main__":
 				yaml_filename = os.path.join(run_logdir, "{}_parameters.yaml".format(LOO_animal))
 				args.save_yaml(yaml_filename)
 				
-				ClusterQueue(LOO_animal, run_logdir, 15000, yaml_filename)
+				ClusterQueue(LOO_animal, run_logdir, 10000, yaml_filename)
 		else:  # this is for scanning
 			# list of the pretrained models
 			models = [
