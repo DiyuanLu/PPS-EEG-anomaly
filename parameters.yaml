@@ -1,7 +1,7 @@
 # TODO: These will be changed when submitting to cluster
-platform: "Lu_laptop"
+platform: laptop #"FIAS"  #
 if_to_cluster: False
-LOO_animal: "1275"
+LOO_animal: "1227"
 ctrl_data_path: C:/Users/LDY/Desktop/EPG/EPG_data/data/3d/control
 pps_data_path: C:/Users/LDY/Desktop/EPG/EPG_data/data/3d/PPS
 root_logdir: C:/Users/LDY/Desktop/EPG/EPG_data/results
@@ -14,17 +14,17 @@ n_sec_per_sample: 1
 sampling_rate: 512
 input_size: 512
 h_dim: 512
-z_dim: 16
+z_dim: 128
 n_epochs: 5
 batch_size: 128
 LOO_animals:
   - "1227"
   - "1275"  # comment the rest on laptop
-  - "1237"
-  - "1270"
-  - "1276"
-  - "32140"
-  - "32141"
+#  - "1237"
+#  - "1270"
+#  - "1276"
+#  - "32140"
+#  - "32141"
 
 n_pps2use: 20  #2  #
 n_ctrl2use: 100  # 100,
@@ -32,15 +32,15 @@ train_percentage: 0.9
 pps_animals:
 - '1227'
 - '1275'  # comment the rest on laptop
-- '1237'
-- '1270'
-- '1276'
-- '32140'
-- '32141'
+#- '1237'
+#- '1270'
+#- '1276'
+#- '32140'
+#- '32141'
 ctrl_animals:
 - '3263'
 - '3267'  # comment the rest on laptop
-- '3266'
+#- '3266'
 file_pattern: "new.csv"
 if_include_ctrl: True  # whether to include ctrl animals
 
@@ -55,7 +55,6 @@ dc_loss_weight: 1.0
 
 encoder_mode: "MLP"
 decoder_mode: "MLP"
-
 model:
   MLP:
     enc_units: [400, 256, 128]

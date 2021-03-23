@@ -8,7 +8,8 @@ import seaborn as sns
 sns.set(style="darkgrid")
 import pandas as pd
 from sklearn.decomposition import PCA
-from input_pipeline import csv_reader_dataset, get_all_data_files, get_data_files_from_folder
+from input_pipeline import csv_reader_dataset, get_all_data_files, get_data_files_from_folder, v2_create_dataset
+from utils import get_timestamp_from_file
 
 
 def scan_animals_with_pretrained_model(args):
@@ -17,7 +18,7 @@ def scan_animals_with_pretrained_model(args):
     :param args:
     :return:
     """
-    batch_size = 512
+    batch_size = 800
     z_dim = args.z_dim
 
     # for model_name in args.models[:]:
@@ -53,19 +54,30 @@ def scan_animals_with_pretrained_model(args):
         train_files, valid_files = get_data_files_from_folder(
             animal_path + '/BL/')
 
-    epg_set = csv_reader_dataset(epg_files, batch_size=batch_size,
-                                 shuffle=False)
-    valid_set = csv_reader_dataset(valid_files, batch_size=batch_size,
-                                   shuffle=False)
-    train_set = csv_reader_dataset(train_files, batch_size=batch_size,
-                                   shuffle=False)
+    # epg_set = csv_reader_dataset(epg_files, batch_size=batch_size,
+    #                              shuffle=False)
+    # valid_set = csv_reader_dataset(valid_files, batch_size=batch_size,
+    #                                shuffle=False)
+    # train_set = csv_reader_dataset(train_files, batch_size=batch_size,
+    #                                shuffle=False)
+    epg_set = v2_create_dataset(epg_files, batch_size=batch_size,
+                                 shuffle=False, n_sec_per_sample=args.n_sec_per_sample, sr=512)
+    valid_set = v2_create_dataset(valid_files, batch_size=batch_size,
+                                   shuffle=False, n_sec_per_sample=args.n_sec_per_sample, sr=512)
+    train_set = v2_create_dataset(train_files, batch_size=batch_size, shuffle=False,
+                          n_sec_per_sample=args.n_sec_per_sample, sr=512)
+
+    total_num_batches_epg = (len(epg_files) * 720 * 5) // (args.n_sec_per_sample * batch_size)
+    total_num_batches_valid = (len(valid_files) * 720 * 5) // (args.n_sec_per_sample * batch_size)
+    total_num_batches_train = (len(train_files) * 720 * 5) // (args.n_sec_per_sample * batch_size)
+    hour_span_epg = (get_timestamp_from_file(epg_files[-1]) - get_timestamp_from_file(epg_files[0])) / 3600
+    hour_span_valid = (get_timestamp_from_file(valid_files[-1]) - get_timestamp_from_file(valid_files[0])) / 3600
+    hour_span_train = (get_timestamp_from_file(train_files[-1]) - get_timestamp_from_file(train_files[0])) / 3600
 
     encoder = tf.keras.models.load_model(run_logdir + '/encoder.h5')
     decoder = tf.keras.models.load_model(run_logdir + '/decoder.h5')
 
     # disc_x = tf.keras.models.load_model(run_logdir+'/discriminator_x.h5')
-
-
     def compute_batch_distance(z):
         distance = []
         for i in range(z.shape[0]):
@@ -73,16 +85,33 @@ def scan_animals_with_pretrained_model(args):
                                                              np.zeros(z_dim)))
         return np.array(distance)
 
-    def compute_distros(dataset, directory):
+    def compute_distros(dataset, directory, total_batch=10, num2coll=0):
+        """
+        compute the reconstruction errors, distances, and the latent code
+        :param dataset:
+        :param directory:
+        :param total_batch:
+        :param num2coll: how many random batches to collect for further visualization
+        :return:
+        """
         if not os.path.exists(directory):
             os.mkdir(directory)
         errors = np.array([])
         # probilities = np.array([])
         distances = np.array([])
+        all_filenames = np.array([])
+        rat_ids = np.array([])
+        labels = np.array([])
         z_all = np.zeros(z_dim)
 
-        for i, batch in enumerate(dataset):
-            z = encoder(batch)
+        coll_batch_inds = np.random.choice(total_batch, num2coll, replace=False)
+        for i, batch_data in enumerate(dataset):
+            batch_features, batch_label, batch_fn, batch_rat_id = [batch_data[i]
+                                                                   for i in
+                                                                   range(
+                                                                       len(
+                                                                           batch_data))]
+            z = encoder(batch_features)
             z_all = np.vstack((z_all, z.numpy()))
     
             x_hat = decoder(z)
@@ -90,7 +119,7 @@ def scan_animals_with_pretrained_model(args):
             # probilities = np.concatenate((probilities,prob),axis=0)
     
     
-            loss = np.square(batch - x_hat)[:, :, 0]
+            loss = np.square(batch_features - x_hat)[:, :, 0]
             # error = loss.reshape(loss.shape[0]*loss.shape[1])
             error = np.mean(loss, axis=1).ravel()
             errors = np.concatenate((errors, error), axis=0)
@@ -100,17 +129,30 @@ def scan_animals_with_pretrained_model(args):
     
             if (i + 1) % 10 == 0:
                 print('finished: ' + str(i) + ' batches')
+                
+            if i in coll_batch_inds:
+                coll_info = np.concatenate((
+                    batch_fn.reshape(-1,1),
+                    batch_label.reshape(-1,1),
+                    batch_rat_id.reshape(-1,1),
+                    error.reshape(-1,1),
+                    distance.reshape(-1,1),
+                    batch_features.reshape(batch_size,-1),
+                    x_hat.reshape(batch_size,-1)
+                    ), axis=1)
+                np.savetxt(os.path.join(directory, "collected_info-[fn,lb,id,err,dist,eeg,recon]-{}.csv".format(i)), np.array(coll_info), fmt="%s", delimiter=",")
+                coll_info = 0
+                
         np.save(directory + '/errors.npy', errors)
         # np.save(directory+'/probilities.npy', probilities)
         np.save(directory + '/distances.npy', distances)
         np.save(directory + '/z.npy', z_all[1:, :])
 
-    compute_distros(train_set, output_directory + 'train_data')
-    compute_distros(valid_set, output_directory + 'valid_data')
-    compute_distros(epg_set, output_directory + 'epg_data')
+    compute_distros(epg_set, output_directory + 'epg_data', total_batch=total_num_batches_epg, num2coll=hour_span_epg//10)
+    compute_distros(valid_set, output_directory + 'valid_data', total_batch=total_num_batches_valid, num2coll=hour_span_valid//10)
+    compute_distros(train_set, output_directory + 'train_data', total_batch=total_num_batches_train, num2coll=hour_span_train//10)
 
     ####################################################################
-
     t_errors = np.load(output_directory + 'train_data' + '/errors.npy')
     # t_probilities = np.load(output_directory+'train_data'+'/probilities.npy')
     t_distances = np.load(output_directory + 'train_data' + '/distances.npy')
@@ -208,6 +250,7 @@ def scan_animals_with_pretrained_model(args):
     plt.fill_between(moving_std.index, (moving_average - moving_std),
                      (moving_average + moving_std), color='red', alpha=.2,
                      label=' moving std')
+    
     plt.hlines([th90, th95, th99], 0, len(whole_segment_v_errors),
                colors='green', linewidth=2, linestyles='dashed',
                label='90th, 95th, 99th percentiles')

@@ -68,18 +68,13 @@ class AAE(tf.keras.Model):
 
     def make_MLP_encoder(self, args):
         input = tf.keras.layers.Input(shape=(self.input_size, 1))
-        x = input
+        x = tf.squeeze(input, axis=-1)
         
         for units in args.model["MLP"]["enc_units"]:
             x = tf.keras.layers.Dense(units)(x)
             x = tf.keras.layers.BatchNormalization()(x)
             x = tf.keras.layers.ReLU()(x)
-        # x = tf.keras.layers.Dense(150)(x)
-        # x = tf.keras.layers.BatchNormalization()(x)
-        # x = tf.keras.layers.ReLU()(x)
-        # x = tf.keras.layers.Dense(128)(x)
-        # x = tf.keras.layers.BatchNormalization()(x)
-        # x = tf.keras.layers.ReLU()(x)
+
         code = tf.keras.layers.Dense(self.z_dim)(x)
         model = tf.keras.Model(inputs=input, outputs=code)
         print('Encoder : ')
@@ -360,20 +355,22 @@ class AAE(tf.keras.Model):
         self.discriminator_z.save(self.run_logdir+'/discriminator_z.h5')
         self.discriminator_x.save(self.run_logdir+'/discriminator_x.h5')
 
-    def train_step(self, batch_x):
-
+    def train_step(self, batch_data):
+        batch_features, batch_label, batch_fn, batch_rat_id = [batch_data[i] for i in
+                                                               range(
+                                                                   len(batch_data))]
         # autoencoder
         with tf.GradientTape(persistent=False) as ae_tape:
-            encoder_output = self.encoder(batch_x, training=True)
+            encoder_output = self.encoder(batch_features, training=True)
 
             decoder_output = self.decoder(encoder_output, training=True)
-            ae_loss = self.autoencoder_loss(batch_x, decoder_output, self.ae_loss_weight)
+            ae_loss = self.autoencoder_loss(batch_features, decoder_output, self.ae_loss_weight)
 
             dc_z_fake = self.discriminator_z(encoder_output, training=True)[0]
             gen_z_loss = self.generator_loss(dc_z_fake, self.gen_z_loss_weight)
 
             weights = np.ones(len(self.norm_params), dtype=np.float64) / len(self.norm_params)
-            mixture_idx = np.random.choice(len(weights), size=batch_x.shape[0], replace=True, p=weights)
+            mixture_idx = np.random.choice(len(weights), size=batch_features.shape[0], replace=True, p=weights)
             real_distribution = tf.convert_to_tensor([np.random.normal(self.norm_params[idx], self.std, size=(self.z_dim,)) for idx in mixture_idx], dtype=tf.float32)
 
             # real_distribution = tf.random.normal([tf.cast(batch_x.shape[0], dtype=tf.int32), self.z_dim, 1], mean=0.0, stddev=1.0)
@@ -381,7 +378,7 @@ class AAE(tf.keras.Model):
             dc_x_fake = self.discriminator_x(generator_output, training=True)[0]
             gen_x_loss = self.generator_loss(dc_x_fake, self.gen_x_loss_weight)                       
 
-            new_batch_x = batch_x + tf.random.normal([tf.cast(batch_x.shape[0], dtype=tf.int32), tf.cast(batch_x.shape[1], dtype=tf.int32), 1], mean=0.0, stddev=1.0)
+            new_batch_x = batch_features + tf.random.normal([tf.cast(batch_features.shape[0], dtype=tf.int32), tf.cast(batch_features.shape[1], dtype=tf.int32), 1], mean=0.0, stddev=1.0)
             # new_batch_x = []
             # for i in range(batch_x.shape[0]): 
             #     idx = tf.random.uniform([self.augment_samples], minval=0, maxval=batch_x.shape[0], dtype=tf.int32)
@@ -402,10 +399,10 @@ class AAE(tf.keras.Model):
                 # real_distribution = tf.random.normal([tf.cast(batch_x.shape[0], dtype=tf.int32), self.z_dim, 1], mean=0.0, stddev=1.0)
  
                 weights = np.ones(len(self.norm_params), dtype=np.float64) / len(self.norm_params)
-                mixture_idx = np.random.choice(len(weights), size=batch_x.shape[0], replace=True, p=weights)
+                mixture_idx = np.random.choice(len(weights), size=batch_features.shape[0], replace=True, p=weights)
                 real_distribution = tf.convert_to_tensor([np.random.normal(self.norm_params[idx], self.std, size=(self.z_dim,1)) for idx in mixture_idx], dtype=tf.float32)
 
-                encoder_output = self.encoder(batch_x, training=True)
+                encoder_output = self.encoder(batch_features, training=True)
                 dc_z_real = self.discriminator_z(real_distribution, training=True)[0]
                 dc_z_fake = self.discriminator_z(encoder_output, training=True)[0]
                 dc_z_loss_real, dc_z_loss_fake, dc_z_loss = self.discriminator_loss(dc_z_real, dc_z_fake, self.dc_loss_weight)
@@ -418,12 +415,12 @@ class AAE(tf.keras.Model):
                 # encoder_output = self.encoder(batch_x, training=True)
 
                 weights = np.ones(len(self.norm_params), dtype=np.float64) / len(self.norm_params)
-                mixture_idx = np.random.choice(len(weights), size=batch_x.shape[0], replace=True, p=weights)
+                mixture_idx = np.random.choice(len(weights), size=batch_features.shape[0], replace=True, p=weights)
                 real_distribution = tf.convert_to_tensor([np.random.normal(self.norm_params[idx], self.std, size=(self.z_dim,1)) for idx in mixture_idx], dtype=tf.float32)
 
                 # real_distribution = tf.random.normal([tf.cast(batch_x.shape[0], dtype=tf.int32), self.z_dim, 1], mean=0.0, stddev=1.0)
                 decoder_output = self.decoder(real_distribution, training=True)
-                dc_x_real = self.discriminator_x(batch_x, training=True)[0]
+                dc_x_real = self.discriminator_x(batch_features, training=True)[0]
                 dc_x_fake = self.discriminator_x(decoder_output, training=True)[0]
                 dc_x_loss_real, dc_x_loss_fake, dc_x_loss = self.discriminator_loss(dc_x_real, dc_x_fake, self.dc_loss_weight)
                 dc_x_acc = self.accuracy_x(tf.concat([tf.ones_like(dc_x_real), tf.zeros_like(dc_x_fake)], axis=0), tf.sigmoid(tf.concat([dc_x_real, dc_x_fake], axis=0)))
@@ -490,6 +487,7 @@ class AAE(tf.keras.Model):
             epoch_dc_z_loss_avg = tf.compat.v2.metrics.Mean(name='Disc loss_z')
 
             for batch, batch_x in enumerate(train_set):
+
                 ae_loss, dc_z_loss, dc_z_acc, dc_x_loss, dc_x_acc, gen_z_loss, gen_x_loss, dc_z_loss_real, dc_z_loss_fake, dc_x_loss_real, dc_x_loss_fake = self.train_step(batch_x)
 
                 metrics['ae_losses'].append(ae_loss)

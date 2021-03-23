@@ -209,7 +209,7 @@ def get_dirs_with_platform(platform):
     :param platform:
     :return:
     """
-    paths_platforms = {"Lu_laptop": {
+    paths_platforms = {"laptop": {
         "pps_data_path": "C:/Users/LDY/Desktop/EPG/EPG_data/data/3d/PPS",
         "ctrl_data_path": "C:/Users/LDY/Desktop/EPG/EPG_data/data/3d/control",
         "root_logdir": "C:/Users/LDY/Desktop/EPG/EPG_data/results"
@@ -255,3 +255,20 @@ def copy_save_all_files(args):
                     for line in file_src:
                         file_dst.write(line)
     print('Done WithCopy File!')
+
+
+def get_timestamp_from_file(fn, year_ind=1):
+    """
+    Get the abs. time stamp for a given file
+    EPG-2014-10-10T05-51-0-filter-5s-720-new.csv
+    :param fn:
+    :param year_ind:
+    :return:
+    """
+    year = np.int(fn.split("-")[year_ind])
+    mon = np.int(fn.split("-")[year_ind+1])
+    day = np.int(fn.split("-")[year_ind+2].split("T")[0])
+    hour = np.int(fn.split("-")[year_ind+2].split("T")[1])
+    min = np.int(fn.split("-")[year_ind+3])
+    timestamp = datetime(year, mon, day, hour, min).timestamp()
+    return timestamp
