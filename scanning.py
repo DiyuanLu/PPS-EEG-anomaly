@@ -135,6 +135,7 @@ for model_name in models[:]:
     plt.yscale('log')
     plt.legend()
     plt.savefig(output_directory+'errors.png')
+    plt.savefig(output_directory+'errors.pdf', format="pdf")
     plt.close()
 
     # fig = plt.figure(figsize=(10,10))
@@ -151,6 +152,7 @@ for model_name in models[:]:
     sns.distplot(v_distances, kde=False, norm_hist=True, label='valid distances')
     plt.legend()
     plt.savefig(output_directory+'distances.png')
+    plt.savefig(output_directory+'distances.pdf', format="pdf")
     plt.close()
 
     # reshaped_t_errors = np.reshape(t_errors, (int(t_errors.shape[0]/2560),2560))
@@ -172,6 +174,7 @@ for model_name in models[:]:
     plt.xticks(ticks, np.arange(0,len(ticks), 1))
     plt.legend()
     plt.savefig(output_directory+'t_whole_segment_errors.png')
+    plt.savefig(output_directory+'t_whole_segment_errors.pdf', format="pdf")
     plt.close()
 
     th90 = np.percentile(whole_segment_t_errors, 90)
@@ -198,6 +201,7 @@ for model_name in models[:]:
     plt.xticks(ticks, np.arange(0,len(ticks), 1))
     plt.legend()
     plt.savefig(output_directory+'v_whole_segment_errors.png')
+    plt.savefig(output_directory+'v_whole_segment_errors.pdf', format="pdf")
     plt.close()
 
     # reshaped_e_errors = np.reshape(e_errors, (int(e_errors.shape[0]/2560),2560))
@@ -220,6 +224,7 @@ for model_name in models[:]:
     plt.xticks(ticks, np.arange(0,len(ticks), 1)) 
     plt.legend()
     plt.savefig(output_directory+'e_whole_segment_errors.png')
+    plt.savefig(output_directory+'e_whole_segment_errors.pdf', format="pdf")
     plt.close()
 
     fig = plt.figure(figsize=(10,10))
@@ -241,6 +246,7 @@ for model_name in models[:]:
     ticks = np.arange(0,th_whole_segment_t_errors.shape[0], 3600*24)
     plt.xticks(ticks, np.arange(0,len(ticks), 1)) 
     plt.savefig(output_directory+'th_t_whole_segment_errors.png')
+    plt.savefig(output_directory+'th_t_whole_segment_errors.pdf', format="pdf")
     plt.close()
 
     th_whole_segment_v_errors = np.copy(whole_segment_v_errors)
@@ -254,6 +260,7 @@ for model_name in models[:]:
     ticks = np.arange(0,whole_segment_v_errors.shape[0], 3600*24)
     plt.xticks(ticks, np.arange(0,len(ticks), 1)) 
     plt.savefig(output_directory+'th_v_whole_segment_errors.png')
+    plt.savefig(output_directory+'th_v_whole_segment_errors.pdf', format="pdf")
     plt.close()
 
     th_whole_segment_e_errors = np.copy(whole_segment_e_errors)
@@ -267,9 +274,8 @@ for model_name in models[:]:
     ticks = np.arange(0,whole_segment_e_errors.shape[0], 3600*24)
     plt.xticks(ticks, np.arange(0,len(ticks), 1)) 
     plt.savefig(output_directory+'th_e_whole_segment_errors.png')
+    plt.savefig(output_directory+'th_e_whole_segment_errors.pdf', format="pdf")
     plt.close()
-
-
 
     th90_d = np.percentile(t_distances, 90)
     th95_d = np.percentile(t_distances, 95)
@@ -288,6 +294,7 @@ for model_name in models[:]:
     plt.xticks(ticks, np.arange(0,len(ticks), 1))
     plt.legend()
     plt.savefig(output_directory+'t_distances.png')
+    plt.savefig(output_directory+'t_distances.pdf', format="pdf")
     plt.close()
 
     moving_average = pd.Series(v_distances).rolling(3600*12).mean()
@@ -304,6 +311,7 @@ for model_name in models[:]:
     plt.xticks(ticks, np.arange(0,len(ticks), 1))
     plt.legend()
     plt.savefig(output_directory+'v_distances.png')
+    plt.savefig(output_directory+'v_distances.pdf', format="pdf")
     plt.close()
 
     moving_average = pd.Series(e_distances).rolling(3600*12).mean()
@@ -320,6 +328,7 @@ for model_name in models[:]:
     plt.xticks(ticks, np.arange(0,len(ticks), 1)) 
     plt.legend()
     plt.savefig(output_directory+'e_distances.png')
+    plt.savefig(output_directory+'e_distances.pdf', format="pdf")
     plt.close()
 
 
@@ -351,6 +360,7 @@ for model_name in models[:]:
         ticks = np.arange(0,frequency_t.shape[0], (3600)*24)
         plt.xticks(ticks, np.arange(0,len(ticks), 1)) 
         plt.savefig(output_directory+'frequency_t_'+str(window_in_minutes)+' minutes_no.png')
+        plt.savefig(output_directory+'frequency_t_'+str(window_in_minutes)+' minutes_no.pdf', format="pdf")
         plt.close()
 
         th99_frequency = np.nanpercentile(frequency_t, 99)
@@ -369,6 +379,7 @@ for model_name in models[:]:
         ticks = np.arange(0,frequency_v.shape[0], (3600)*24)
         plt.xticks(ticks, np.arange(0,len(ticks), 1)) 
         plt.savefig(output_directory+'frequency_v_'+str(window_in_minutes)+' minutes_no.png')
+        plt.savefig(output_directory+'frequency_v_'+str(window_in_minutes)+' minutes_no.pdf', format="pdf")
         plt.close()
 
         # r = np.reshape(th_whole_segment_e_errors[:len(th_whole_segment_e_errors)//window*window], (-1, window))
@@ -385,6 +396,7 @@ for model_name in models[:]:
         ticks = np.arange(0,frequency_e.shape[0], (3600)*24)
         plt.xticks(ticks, np.arange(0,len(ticks), 1)) 
         plt.savefig(output_directory+'frequency_e_'+str(window_in_minutes)+' minutes_no.png')
+        plt.savefig(output_directory+'frequency_e_'+str(window_in_minutes)+' minutes_no.pdf', format="pdf")
         plt.close()
 
     #############################################################################
