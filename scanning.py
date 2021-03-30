@@ -43,7 +43,7 @@ for model_name in models[:]:
     animal_path = os.path.join(data_path, animal, animal)
 
     run_logdir = root_logdir + model_name
-    output_directory = run_logdir +  '/{}-stats/'.format(animal)
+    output_directory = run_logdir +  '/stats_{}/'.format(animal)
     if not os.path.exists(output_directory):
         os.mkdir(output_directory)
 
@@ -88,8 +88,7 @@ for model_name in models[:]:
         # probilities = np.array([])
         distances = np.array([])
         z_all = np.zeros(z_dim)
-        
-        
+    
         for i, batch in enumerate(dataset):
             # if use v2_data_set
             batch_x, batch_lb, batch_fn, batch_rat_id = [batch[i] for i in range(len(batch))]
@@ -99,7 +98,6 @@ for model_name in models[:]:
             x_hat = decoder(z)
             # prob = scipy.special.expit(disc_x(x_hat)[0]).ravel()
             # probilities = np.concatenate((probilities,prob),axis=0)
-
 
             loss = np.square(batch_x-x_hat)[:,:,0]
             # error = loss.reshape(loss.shape[0]*loss.shape[1])
