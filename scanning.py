@@ -33,7 +33,7 @@ def scan_animals_with_pretrained_model(args):
     animal_path = os.path.join(data_path, animal, animal)
 
     run_logdir = os.path.join(args.root_logdir, os.path.basename(args.model_dir))
-    output_directory = run_logdir +  '/{}-stats/'.format(animal)
+    output_directory = run_logdir +  '/stats_{}/'.format(animal)
     if not os.path.exists(output_directory):
         os.mkdir(output_directory)
 
