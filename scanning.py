@@ -1,21 +1,21 @@
-from input_pipeline import csv_reader_dataset, get_data_files_from_folder, get_all_data_files, v2_create_dataset
-from utils import get_run_logdir
+import os
+import gc
+import scipy
+import ipdb
+import math
 import numpy as np
 import tensorflow as tf
-physical_devices = tf.config.list_physical_devices('GPU') 
+physical_devices = tf.config.list_physical_devices('GPU')
 tf.config.experimental.set_memory_growth(physical_devices[0], True)
-# tf.enable_eager_execution()
 import matplotlib.pyplot as plt
 import matplotlib
-# matplotlib.use('TkAgg')
 matplotlib.use('Agg')
-import itertools
-import os
-import scipy
-import math
 import seaborn as sns
 sns.set(style="darkgrid")
 import pandas as pd
+from input_pipeline import csv_reader_dataset, get_data_files_from_folder, get_all_data_files, v2_create_dataset
+from utils import get_run_logdir
+# tf.enable_eager_execution()
 from sklearn.decomposition import PCA
 
 random_seed = 42
@@ -26,51 +26,56 @@ precomputed = True
 LOO = True
 data_path_general = "/home/epilepsy-data/data/PPS-rats-from-Sebastian"
 root_logdir = '/home/epilepsy-data/data/PPS-rats-from-Sebastian/amr_logs/final_128_0.1'
-batch_size = 900
-models = sorted([f for f in os.listdir(root_logdir)])
+save_root = '/home/epilepsy-data/data/PPS-rats-from-Sebastian/results-7rats/final_128_0.1'
+batch_size = 1440
+models = sorted([f for f in os.listdir(root_logdir) if "run_EPG_anomaly" in f])
 z_dim = 128
 
 for model_name in models[:]:
-    print('working on: '+model_name)
+    print('working on: ' + model_name)
 
     # animal = model_name[40:]
     animal = os.path.basename(model_name).split("_")[-1]
     # animal_path = data_path+animal
     if "326" in animal:
-        data_path = data_path_general + '/Control-Rats/'
+        data_path = os.path.join(data_path_general, 'Control-Rats')
     else:
-        data_path = data_path_general + '/PPS-Rats/'
+        data_path = os.path.join(data_path_general,'/PPS-Rats')
     animal_path = os.path.join(data_path, animal, animal)
 
-    run_logdir = root_logdir + model_name
-    output_directory = run_logdir +  '/stats_{}/'.format(animal)
-    if not os.path.exists(output_directory):
-        os.mkdir(output_directory)
+    output_logdir = os.path.join(save_root, model_name)
+    run_logdir = os.path.join(root_logdir,  model_name)
+    
+    if not os.path.exists(output_logdir):
+        os.mkdir(output_logdir)
+    output_directory = os.path.join(output_logdir, 'stats_{}'.format(animal))
+    for subdir in ["train_data", "epg_data", "valid_data"]:
+        if not os.path.exists(os.path.join(output_directory, subdir)):
+            os.mkdir(os.path.join(output_directory, subdir))
 
     if LOO:
-        epg_files, total_epg_secs = get_data_files_from_folder(animal_path+'/EPG/', train_valid_split=False)
-        valid_files, total_val_secs = get_data_files_from_folder(animal_path+'/BL/', train_valid_split=False)
+        epg_files, total_epg_secs = get_data_files_from_folder(os.path.join(animal_path,'EPG'), train_valid_split=False)
+        valid_files, total_val_secs = get_data_files_from_folder(os.path.join(animal_path,'BL'), train_valid_split=False)
         # train_files = get_all_data_files(data_path, animal, train_valid_split=False)
         trained_files_filename = [i for i in os.listdir(run_logdir) if 'picked_train' in i][0]
-        with open(run_logdir + '/' + trained_files_filename) as f:
-            train_files = f.readlines()
-            train_files = [i.strip() for i in train_files]
+        train_files = np.array(pd.read_csv(os.path.join(run_logdir, trained_files_filename)).values).reshape(-1)
     else:
-        epg_files, total_epg_secs = get_data_files_from_folder(animal_path+'/EPG/', train_valid_split=False)
-        train_files, valid_files, total_train_secs, total_val_secs = get_data_files_from_folder(animal_path+'/BL/', train_valid_split=True, train_percentage=0.8)
+        epg_files, total_epg_secs = get_data_files_from_folder(os.path.join(animal_path,'EPG'), train_valid_split=False)
+        train_files, valid_files, total_train_secs, total_val_secs = get_data_files_from_folder(os.path.join(animal_path,'BL'), train_valid_split=True, train_percentage=0.8)
 
     # epg_set = csv_reader_dataset(epg_files, batch_size=batch_size, shuffle=False)
     epg_set = v2_create_dataset(epg_files, batch_size=batch_size, shuffle=False,
                           n_sec_per_sample=1, sr=512)
-    valid_set = v2_create_dataset(valid_files, batch_size=batch_size, shuffle=False,
-                              n_sec_per_sample=1, sr=512)
+    valid_set = v2_create_dataset(valid_files, batch_size=batch_size, shuffle=False, n_sec_per_sample=1, sr=512)
     # valid_set = csv_reader_dataset(valid_files, batch_size=batch_size, shuffle=False)
-    train_set = v2_create_dataset(trained_files_filename, batch_size=batch_size, shuffle=False,
-                              n_sec_per_sample=1, sr=512)
+    train_set = v2_create_dataset(train_files, batch_size=batch_size, shuffle=False, n_sec_per_sample=1, sr=512)
     # train_set = csv_reader_dataset(train_files, batch_size=batch_size, shuffle=False)
+    total_epg_batches = np.int(len(epg_files) * 3600 / batch_size)  # given that n_sec_per_samp is 1
+    total_valid_batches = np.int(len(valid_files) * 3600 / batch_size)
+    total_train_batches = np.int(len(train_files) * 3600  / batch_size)
 
-    encoder = tf.keras.models.load_model(run_logdir+'/encoder.h5')
-    decoder = tf.keras.models.load_model(run_logdir+'/decoder.h5')
+    encoder = tf.keras.models.load_model(os.path.join(run_logdir, 'encoder.h5'))
+    decoder = tf.keras.models.load_model(os.path.join(run_logdir, 'decoder.h5'))
     # disc_x = tf.keras.models.load_model(run_logdir+'/discriminator_x.h5')
 
 
@@ -81,59 +86,116 @@ for model_name in models[:]:
         return np.array(distance)
 
 
-    def compute_distros(dataset, directory):
+    def compute_distros(dataset, directory, total_batch, num2collect=10):
+        """
+        compute all related metrices and save some batches for future inspection
+        :param dataset:
+        :param directory:
+        :param total_batch:
+        :param num2collect:
+        :return:
+        """
         if not os.path.exists(directory):
             os.mkdir(directory)
         errors = np.array([])
+
         # probilities = np.array([])
         distances = np.array([])
         z_all = np.zeros(z_dim)
-    
-        for i, batch in enumerate(dataset):
-            # if use v2_data_set
-            batch_x, batch_lb, batch_fn, batch_rat_id = [batch[i] for i in range(len(batch))]
-            z = encoder(batch_x)
-            z_all = np.vstack((z_all,z.numpy()))
+        filenames_all = []
+        rat_ids_all = []
 
+        coll_batch_inds = np.random.choice(total_batch, num2collect, replace=False)
+        for i, batch_data in enumerate(dataset):
+            batch_features, batch_label, batch_fn, batch_rat_id = [batch_data[i]
+                                                                   for i in
+                                                                   range(
+                                                                       len(
+                                                                           batch_data))]
+            z = encoder(batch_features)
+            z_all = np.vstack((z_all, z.numpy()))
+            filenames_all.append(batch_fn)
+            rat_ids_all.append(batch_rat_id)
+    
             x_hat = decoder(z)
             # prob = scipy.special.expit(disc_x(x_hat)[0]).ravel()
             # probilities = np.concatenate((probilities,prob),axis=0)
-
-            loss = np.square(batch_x-x_hat)[:,:,0]
+    
+            loss = np.square(batch_features - x_hat)[:, :, 0]
             # error = loss.reshape(loss.shape[0]*loss.shape[1])
             error = np.mean(loss, axis=1).ravel()
-            errors = np.concatenate((errors,error),axis=0)
-
+            errors = np.concatenate((errors, error), axis=0)
+    
             distance = compute_batch_distance(z)
-            distances = np.concatenate((distances,distance),axis=0)
-
-            if (i+1) % 10 == 0:
-                print('finished: '+str(i)+' batches')
-        np.save(directory+'/errors.npy', errors)
+            distances = np.concatenate((distances, distance), axis=0)
+    
+            if (i + 1) % 10 == 0:
+                print('finished: ' + str(i) + ' batches')
+    
+            if i in coll_batch_inds:
+                coll_info = np.concatenate((
+                    batch_fn.reshape(-1, 1),
+                    batch_label.reshape(-1, 1),
+                    batch_rat_id.reshape(-1, 1),
+                    error.reshape(-1, 1),
+                    distance.reshape(-1, 1),
+                    batch_features.reshape(batch_size, -1),
+                    x_hat.reshape(batch_size, -1)
+                ), axis=1)
+                np.savetxt(os.path.join(directory,
+                                        "collected_info-[fn,lb,id,err,dist,eeg,recon]-{}.csv".format(
+                                            i)), np.array(coll_info), fmt="%s",
+                           delimiter=",")
+                gc.collect()
+                
+    
+        # for i, batch in enumerate(dataset):
+        #     # if use v2_data_set
+        #     batch_x, batch_lb, batch_fn, batch_rat_id = [batch[i] for i in range(len(batch))]
+        #     z = encoder(batch_x)
+        #     z_all = np.vstack((z_all,z.numpy()))
+        #
+        #     x_hat = decoder(z)
+        #     # prob = scipy.special.expit(disc_x(x_hat)[0]).ravel()
+        #     # probilities = np.concatenate((probilities,prob),axis=0)
+        #
+        #     loss = np.square(batch_x-x_hat)[:,:,0]
+        #     # error = loss.reshape(loss.shape[0]*loss.shape[1])
+        #     error = np.mean(loss, axis=1).ravel()
+        #     errors = np.concatenate((errors,error),axis=0)
+        #
+        #     distance = compute_batch_distance(z)
+        #     distances = np.concatenate((distances,distance),axis=0)
+        #
+        #     if (i+1) % 10 == 0:
+        #         print('finished: '+str(i)+' batches')
+        np.save(os.path.join(directory, 'errors.npy'), errors)
         # np.save(directory+'/probilities.npy', probilities)
-        np.save(directory+'/distances.npy', distances)
-        np.save(directory+'/z.npy', z_all[1:,:])       
+        np.save(os.path.join(directory, 'distances.npy'), distances)
+        np.save(os.path.join(directory, 'z.npy'), z_all[1:,:])
+        concat_info = np.concatenate((np.array(filenames_all).reshape(-1,1), np.array(rat_ids_all).reshape(-1,1)), axis=1)
+        np.savetxt(os.path.join(directory, 'batch_samples_infomation.csv'), concat_info, delimiter=",", fmt="%s")
     
     if not precomputed:
-        compute_distros(train_set, output_directory+'train_data')
-        compute_distros(valid_set, output_directory+'valid_data')
-        compute_distros(epg_set, output_directory+'epg_data')
+        compute_distros(train_set, os.path.join(output_directory, 'train_data'), total_train_batches, num2collect=total_train_batches//10)
+        compute_distros(valid_set, os.path.join(output_directory, 'valid_data'), total_valid_batches, num2collect=total_train_batches//10)
+        compute_distros(epg_set, os.path.join(output_directory, 'epg_data'), total_epg_batches, num2collect=total_train_batches//20)
 
     ####################################################################
 
-    t_errors = np.load(output_directory+'train_data'+'/errors.npy')
+    t_errors = np.load(os.path.join(output_directory, 'train_data', 'errors.npy'))
     # t_probilities = np.load(output_directory+'train_data'+'/probilities.npy')
-    t_distances = np.load(output_directory+'train_data'+'/distances.npy')
+    t_distances = np.load(os.path.join(output_directory, 'train_data', 'distances.npy'))
     # t_z_all = np.load(output_directory+'train_data'+'/z.npy')
 
-    v_errors = np.load(output_directory+'valid_data'+'/errors.npy')
+    v_errors = np.load(os.path.join(output_directory, 'valid_data', 'errors.npy'))
     # v_probilities = np.load(output_directory+'valid_data'+'/probilities.npy')
-    v_distances = np.load(output_directory+'valid_data'+'/distances.npy')
+    v_distances = np.load(os.path.join(output_directory, 'valid_data', 'distances.npy'))
     # v_z_all = np.load(output_directory+'valid_data'+'/z.npy')
 
-    e_errors = np.load(output_directory+'epg_data'+'/errors.npy')
+    e_errors = np.load(os.path.join(output_directory, 'epg_data', 'errors.npy'))
     # e_probilities = np.load(output_directory+'epg_data'+'/probilities.npy')
-    e_distances = np.load(output_directory+'epg_data'+'/distances.npy')
+    e_distances = np.load(os.path.join(output_directory, 'epg_data', 'distances.npy'))
     # e_z_all = np.load(output_directory+'epg_data'+'/z.npy')
 
     fig = plt.figure(figsize=(10,10))
@@ -142,8 +204,8 @@ for model_name in models[:]:
     sns.distplot(v_errors, kde=False, norm_hist=True, label='valid errors')
     plt.yscale('log')
     plt.legend()
-    plt.savefig(output_directory+'errors.png')
-    plt.savefig(output_directory+'errors.pdf', format="pdf")
+    plt.savefig(os.path.join(output_directory, 'errors.png'))
+    plt.savefig(os.path.join(output_directory, 'errors.pdf'), format="pdf")
     plt.close()
 
     # fig = plt.figure(figsize=(10,10))
