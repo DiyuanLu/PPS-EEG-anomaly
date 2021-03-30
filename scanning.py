@@ -1,4 +1,4 @@
-from input_pipeline import csv_reader_dataset, get_data_files_from_folder, get_all_data_files
+from input_pipeline import csv_reader_dataset, get_data_files_from_folder, get_all_data_files, v2_create_dataset
 from utils import get_run_logdir
 import numpy as np
 import tensorflow as tf
@@ -24,43 +24,50 @@ np.random.seed(random_seed)
 
 precomputed = True
 LOO = True
-data_path_general = "/home/epilepsy-data/data/PPS-rats-from-Sebastian/"
-root_logdir = '/home/farahat/Documents/my_logs/final_1/'
-batch_size = 512
+data_path_general = "/home/epilepsy-data/data/PPS-rats-from-Sebastian"
+root_logdir = '/home/epilepsy-data/data/PPS-rats-from-Sebastian/amr_logs/final_128_0.1'
+batch_size = 900
 models = sorted([f for f in os.listdir(root_logdir)])
-z_dim = 64
+z_dim = 128
 
 for model_name in models[:]:
     print('working on: '+model_name)
 
-    animal = model_name[40:]
+    # animal = model_name[40:]
+    animal = os.path.basename(model_name).split("_")[-1]
     # animal_path = data_path+animal
     if "326" in animal:
-        data_path = data_path_general + 'Control-Rats/'
+        data_path = data_path_general + '/Control-Rats/'
     else:
-        data_path = data_path_general + 'PPS-Rats/'
+        data_path = data_path_general + '/PPS-Rats/'
     animal_path = os.path.join(data_path, animal, animal)
 
     run_logdir = root_logdir + model_name
-    output_directory = run_logdir +  '/stats/'
+    output_directory = run_logdir +  '/{}-stats/'.format(animal)
     if not os.path.exists(output_directory):
         os.mkdir(output_directory)
 
     if LOO:
-        epg_files = get_data_files_from_folder(animal_path+'/EPG/', train_valid_split=False)
-        valid_files = get_data_files_from_folder(animal_path+'/BL/', train_valid_split=False)
+        epg_files, total_epg_secs = get_data_files_from_folder(animal_path+'/EPG/', train_valid_split=False)
+        valid_files, total_val_secs = get_data_files_from_folder(animal_path+'/BL/', train_valid_split=False)
         # train_files = get_all_data_files(data_path, animal, train_valid_split=False)
         trained_files_filename = [i for i in os.listdir(run_logdir) if 'picked_train' in i][0]
         with open(run_logdir + '/' + trained_files_filename) as f:
             train_files = f.readlines()
             train_files = [i.strip() for i in train_files]
     else:
-        epg_files = get_data_files_from_folder(animal_path+'/EPG/', train_valid_split=False)
-        train_files, valid_files = get_data_files_from_folder(animal_path+'/BL/')
+        epg_files, total_epg_secs = get_data_files_from_folder(animal_path+'/EPG/', train_valid_split=False)
+        train_files, valid_files, total_train_secs, total_val_secs = get_data_files_from_folder(animal_path+'/BL/', train_valid_split=True, train_percentage=0.8)
 
-    epg_set = csv_reader_dataset(epg_files, batch_size=batch_size, shuffle=False)
-    valid_set = csv_reader_dataset(valid_files, batch_size=batch_size, shuffle=False)
-    train_set = csv_reader_dataset(train_files, batch_size=batch_size, shuffle=False)
+    # epg_set = csv_reader_dataset(epg_files, batch_size=batch_size, shuffle=False)
+    epg_set = v2_create_dataset(epg_files, batch_size=batch_size, shuffle=False,
+                          n_sec_per_sample=1, sr=512)
+    valid_set = v2_create_dataset(valid_files, batch_size=batch_size, shuffle=False,
+                              n_sec_per_sample=1, sr=512)
+    # valid_set = csv_reader_dataset(valid_files, batch_size=batch_size, shuffle=False)
+    train_set = v2_create_dataset(trained_files_filename, batch_size=batch_size, shuffle=False,
+                              n_sec_per_sample=1, sr=512)
+    # train_set = csv_reader_dataset(train_files, batch_size=batch_size, shuffle=False)
 
     encoder = tf.keras.models.load_model(run_logdir+'/encoder.h5')
     decoder = tf.keras.models.load_model(run_logdir+'/decoder.h5')
@@ -81,9 +88,12 @@ for model_name in models[:]:
         # probilities = np.array([])
         distances = np.array([])
         z_all = np.zeros(z_dim)
-
+        
+        
         for i, batch in enumerate(dataset):
-            z = encoder(batch)
+            # if use v2_data_set
+            batch_x, batch_lb, batch_fn, batch_rat_id = [batch[i] for i in range(len(batch))]
+            z = encoder(batch_x)
             z_all = np.vstack((z_all,z.numpy()))
 
             x_hat = decoder(z)
@@ -91,7 +101,7 @@ for model_name in models[:]:
             # probilities = np.concatenate((probilities,prob),axis=0)
 
 
-            loss = np.square(batch-x_hat)[:,:,0]
+            loss = np.square(batch_x-x_hat)[:,:,0]
             # error = loss.reshape(loss.shape[0]*loss.shape[1])
             error = np.mean(loss, axis=1).ravel()
             errors = np.concatenate((errors,error),axis=0)

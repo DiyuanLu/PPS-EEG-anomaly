@@ -25,12 +25,20 @@ def get_data_files_from_folder(path, train_valid_split=True, train_percentage=0.
     """
     files = sorted([path+f for f in listdir(path) if isfile(join(path, f))])
     files = list(filter(lambda x: "new.csv" in x, files))
+    
     if train_valid_split:
         train_files = files[:round(len(files)*train_percentage)]
+        total_train_secs = np.sum(
+            [np.int(os.path.basename(fn).split("-")[-2]) for fn in train_files])
+
         valid_files = files[round(len(files)*train_percentage):]
-        return train_files, valid_files
+        total_val_secs = np.sum(
+            [np.int(os.path.basename(fn).split("-")[-2]) for fn in valid_files])
+        return train_files, valid_files, total_train_secs, total_val_secs
     else:
-        return files
+        total_num_secs = np.sum(
+            [np.int(os.path.basename(fn).split("-")[-2]) for fn in files])
+        return files, total_num_secs
 
 def get_all_data_files(data_path, test_animal, train_valid_split=True, train_percentage=0.9):
     """
@@ -232,6 +240,80 @@ def csv_reader_dataset(filepaths, n_readers=5,
     
     dataset = dataset.batch(batch_size, drop_remainder=False)
     return dataset.prefetch(2)
+
+
+def v2_create_dataset(filenames, batch_size=32, shuffle=True,
+                      n_sec_per_sample=1, sr=512):
+    def decode_csv(line):
+        # Map function to decode the .csv file in TextLineDataset
+        # @param line object in TextLineDataset
+        # @return: zipped Dataset, (features, (label, filename, rat_id))
+        """
+        The defaults I copied from one of your previous emails.
+        As I don't work with arguments like sampling rate and seconds per row,
+        I simply put them in manually for my case (sampling rate 512 with 5 seconds
+        per row.
+        """
+        
+        defaults = [['']] + [[0.0]] * (
+                512 * 5 + 1)  # there are 5 sec in one row
+        csv_row = tf.compat.v1.decode_csv(line, record_defaults=defaults)
+        
+        filename = tf.cast(csv_row[0], tf.string)
+        label = tf.cast(csv_row[1], tf.int32)  # given the label
+        features = tf.stack(csv_row[2:])
+        
+        # why do we need the rat_id as a number?
+        rat_id = tf.cast(tf.strings.substr(filename, 1, 2), tf.string)
+        # rat_id = tf.strings.to_number(tf.strings.substr(filename, 1, 2), out_type=tf.dtypes.int32)
+        # Apply the zscore transformation
+        mean = tf.reduce_mean(features)
+        std = tf.math.reduce_std(features)
+        zscore = (features - mean) / (std + 1e-13)
+        
+        return zscore, label, filename, rat_id
+        
+        # reshape the sample to 1 second
+    
+    def reshape_to_k_sec(feature, label, filename, rat_id, n_sec=1, sr=512):
+        reshaped_x = tf.reshape(feature[:(5 // n_sec) * n_sec * sr], (
+            5 // n_sec, n_sec * sr, 1))
+        filename = tf.cast(tf.repeat(filename, repeats=5 // n_sec, axis=0),
+                           dtype=tf.string)
+        label = tf.repeat(label, repeats=5 // n_sec, axis=0)
+        rat_id = tf.cast(tf.repeat(rat_id, repeats=5 // n_sec, axis=0),
+                         dtype=tf.string)
+        return reshaped_x, label, filename, rat_id
+    
+    def flat_map_reshaped(feature, label, filename, rat_id):
+        filename = tf.data.Dataset.from_tensor_slices(filename)
+        label = tf.data.Dataset.from_tensor_slices(label)
+        feature = tf.data.Dataset.from_tensor_slices(feature)
+        rat_id = tf.data.Dataset.from_tensor_slices(rat_id)
+        return tf.data.Dataset.zip((feature, label, filename, rat_id))
+    
+    #########################################################################
+    dataset = tf.data.Dataset.list_files(filenames)
+    
+    # Apply the transformation method to all lines
+    dataset = dataset.interleave(lambda fn:
+                                 tf.data.TextLineDataset(fn).map(decode_csv))
+    # zscore, label, filename, rat_id
+    dataset = dataset.map(
+        map_func=lambda x, lb, fn, rat_id: reshape_to_k_sec(x, lb, fn, rat_id,
+                                                            n_sec=n_sec_per_sample,
+                                                            sr=sr))
+    dataset = dataset.flat_map(
+        lambda x, lb, fn, rat_id: flat_map_reshaped(x, lb, fn, rat_id))
+    
+    if shuffle:
+        dataset = dataset.shuffle(10000).batch(batch_size,
+                                               drop_remainder=True).repeat()
+    else:
+        dataset = dataset.batch(batch_size, drop_remainder=True).repeat()
+    
+    return dataset.prefetch(2)
+
 
 ################## Lu Data input pipeline ##########################
 def get_train_test_files_split(root, fns, ratio,
