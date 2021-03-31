@@ -22,7 +22,7 @@ random_seed = 42
 tf.random.set_seed(random_seed)
 np.random.seed(random_seed)
 
-precomputed = True
+precomputed = False
 LOO = True
 data_path_general = "/home/epilepsy-data/data/PPS-rats-from-Sebastian"
 root_logdir = '/home/epilepsy-data/data/PPS-rats-from-Sebastian/amr_logs/final_128_0.1'
@@ -40,7 +40,7 @@ for model_name in models[:]:
     if "326" in animal:
         data_path = os.path.join(data_path_general, 'Control-Rats')
     else:
-        data_path = os.path.join(data_path_general,'/PPS-Rats')
+        data_path = os.path.join(data_path_general,'PPS-Rats')
     animal_path = os.path.join(data_path, animal, animal)
 
     output_logdir = os.path.join(save_root, model_name)
@@ -114,8 +114,12 @@ for model_name in models[:]:
                                                                            batch_data))]
             z = encoder(batch_features)
             z_all = np.vstack((z_all, z.numpy()))
-            filenames_all.append(batch_fn)
-            rat_ids_all.append(batch_rat_id)
+            batch_fn_array = np.array(batch_fn).astype(np.str)
+            batch_label_array = np.array(batch_label).astype(np.str)
+            batch_rat_id_array = np.array(batch_rat_id).astype(np.str)
+
+            filenames_all.append(batch_fn_array)
+            rat_ids_all.append(batch_rat_id_array)
     
             x_hat = decoder(z)
             # prob = scipy.special.expit(disc_x(x_hat)[0]).ravel()
@@ -133,42 +137,25 @@ for model_name in models[:]:
                 print('finished: ' + str(i) + ' batches')
     
             if i in coll_batch_inds:
+                batch_features_array = np.array(batch_features).astype(np.float32)
                 coll_info = np.concatenate((
-                    batch_fn.reshape(-1, 1),
-                    batch_label.reshape(-1, 1),
-                    batch_rat_id.reshape(-1, 1),
+                    batch_fn_array.reshape(-1, 1),
+                    batch_label_array.reshape(-1, 1),
+                    batch_rat_id_array.reshape(-1, 1),
                     error.reshape(-1, 1),
                     distance.reshape(-1, 1),
-                    batch_features.reshape(batch_size, -1),
+                    batch_features_array.reshape(batch_size, -1),
                     x_hat.reshape(batch_size, -1)
                 ), axis=1)
                 np.savetxt(os.path.join(directory,
                                         "collected_info-[fn,lb,id,err,dist,eeg,recon]-{}.csv".format(
                                             i)), np.array(coll_info), fmt="%s",
                            delimiter=",")
+                print("Saved {}".format(os.path.join(directory,
+                                                        "collected_info-[fn,lb,id,err,dist,eeg,recon]-{}.csv".format(
+                                                            i))))
                 gc.collect()
-                
-    
-        # for i, batch in enumerate(dataset):
-        #     # if use v2_data_set
-        #     batch_x, batch_lb, batch_fn, batch_rat_id = [batch[i] for i in range(len(batch))]
-        #     z = encoder(batch_x)
-        #     z_all = np.vstack((z_all,z.numpy()))
-        #
-        #     x_hat = decoder(z)
-        #     # prob = scipy.special.expit(disc_x(x_hat)[0]).ravel()
-        #     # probilities = np.concatenate((probilities,prob),axis=0)
-        #
-        #     loss = np.square(batch_x-x_hat)[:,:,0]
-        #     # error = loss.reshape(loss.shape[0]*loss.shape[1])
-        #     error = np.mean(loss, axis=1).ravel()
-        #     errors = np.concatenate((errors,error),axis=0)
-        #
-        #     distance = compute_batch_distance(z)
-        #     distances = np.concatenate((distances,distance),axis=0)
-        #
-        #     if (i+1) % 10 == 0:
-        #         print('finished: '+str(i)+' batches')
+        
         np.save(os.path.join(directory, 'errors.npy'), errors)
         # np.save(directory+'/probilities.npy', probilities)
         np.save(os.path.join(directory, 'distances.npy'), distances)
