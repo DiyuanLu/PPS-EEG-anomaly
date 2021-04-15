@@ -5,18 +5,21 @@ import ipdb
 import math
 import numpy as np
 import tensorflow as tf
-physical_devices = tf.config.list_physical_devices('GPU')
-tf.config.experimental.set_memory_growth(physical_devices[0], True)
+# physical_devices = tf.config.list_physical_devices('GPU')
+# tf.config.experimental.set_memory_growth(physical_devices[0], True)
 import matplotlib.pyplot as plt
 import matplotlib
 matplotlib.use('Agg')
 import seaborn as sns
 sns.set(style="darkgrid")
 import pandas as pd
+from tqdm import tqdm
+
 from input_pipeline import csv_reader_dataset, get_data_files_from_folder, get_all_data_files, v2_create_dataset
-from utils import get_run_logdir
+from utils import get_run_logdir, set_gpu_memory_growth
 # tf.enable_eager_execution()
 from sklearn.decomposition import PCA
+# set_gpu_memory_growth()
 
 random_seed = 42
 tf.random.set_seed(random_seed)
@@ -27,7 +30,7 @@ LOO = True
 data_path_general = "/home/epilepsy-data/data/PPS-rats-from-Sebastian"
 root_logdir = '/home/epilepsy-data/data/PPS-rats-from-Sebastian/amr_logs/final_128_0.1'
 save_root = '/home/epilepsy-data/data/PPS-rats-from-Sebastian/results-7rats/final_128_0.1'
-batch_size = 1440
+batch_size = 1024
 models = sorted([f for f in os.listdir(root_logdir) if "run_EPG_anomaly" in f])
 z_dim = 128
 
@@ -36,6 +39,8 @@ for model_name in models[:]:
 
     # animal = model_name[40:]
     animal = os.path.basename(model_name).split("_")[-1]
+    if animal == "1275":
+        continue
     # animal_path = data_path+animal
     if "326" in animal:
         data_path = os.path.join(data_path_general, 'Control-Rats')
@@ -49,9 +54,12 @@ for model_name in models[:]:
     if not os.path.exists(output_logdir):
         os.mkdir(output_logdir)
     output_directory = os.path.join(output_logdir, 'stats_{}'.format(animal))
+    if not os.path.exists(output_directory):
+        os.mkdir(output_directory)
     for subdir in ["train_data", "epg_data", "valid_data"]:
         if not os.path.exists(os.path.join(output_directory, subdir)):
             os.mkdir(os.path.join(output_directory, subdir))
+            print("Made path: {}".format(os.path.join(output_directory, subdir)))
 
     if LOO:
         epg_files, total_epg_secs = get_data_files_from_folder(os.path.join(animal_path,'EPG'), train_valid_split=False)
@@ -64,11 +72,11 @@ for model_name in models[:]:
         train_files, valid_files, total_train_secs, total_val_secs = get_data_files_from_folder(os.path.join(animal_path,'BL'), train_valid_split=True, train_percentage=0.8)
 
     # epg_set = csv_reader_dataset(epg_files, batch_size=batch_size, shuffle=False)
-    epg_set = v2_create_dataset(epg_files, batch_size=batch_size, shuffle=False,
+    epg_set = v2_create_dataset(epg_files, batch_size=batch_size, shuffle=False, repeat=False,
                           n_sec_per_sample=1, sr=512)
-    valid_set = v2_create_dataset(valid_files, batch_size=batch_size, shuffle=False, n_sec_per_sample=1, sr=512)
+    valid_set = v2_create_dataset(valid_files, batch_size=batch_size, shuffle=False, repeat=False, n_sec_per_sample=1, sr=512)
     # valid_set = csv_reader_dataset(valid_files, batch_size=batch_size, shuffle=False)
-    train_set = v2_create_dataset(train_files, batch_size=batch_size, shuffle=False, n_sec_per_sample=1, sr=512)
+    train_set = v2_create_dataset(train_files, batch_size=batch_size, shuffle=False, repeat=False, n_sec_per_sample=1, sr=512)
     # train_set = csv_reader_dataset(train_files, batch_size=batch_size, shuffle=False)
     total_epg_batches = np.int(len(epg_files) * 3600 / batch_size)  # given that n_sec_per_samp is 1
     total_valid_batches = np.int(len(valid_files) * 3600 / batch_size)
@@ -86,7 +94,7 @@ for model_name in models[:]:
         return np.array(distance)
 
 
-    def compute_distros(dataset, directory, total_batch, num2collect=10):
+    def  compute_distros(dataset, directory, total_batch, num2collect=10, name="epg"):
         """
         compute all related metrices and save some batches for future inspection
         :param dataset:
@@ -106,6 +114,8 @@ for model_name in models[:]:
         rat_ids_all = []
 
         coll_batch_inds = np.random.choice(total_batch, num2collect, replace=False)
+        np.savetxt(os.path.join(directory, "randomly-selected-{}-{}batches-{}.csv".format(num2collect, total_batch, name)), np.array(np.sort(coll_batch_inds)).reshape(-1,1), fmt="%d", delimiter=",")
+        print("{}/{} batches in {} to collect: {}".format(num2collect, total_batch, name, coll_batch_inds))
         for i, batch_data in enumerate(dataset):
             batch_features, batch_label, batch_fn, batch_rat_id = [batch_data[i]
                                                                    for i in
@@ -129,15 +139,16 @@ for model_name in models[:]:
             # error = loss.reshape(loss.shape[0]*loss.shape[1])
             error = np.mean(loss, axis=1).ravel()
             errors = np.concatenate((errors, error), axis=0)
+            
+            # if i % 20 == 0:
+            #     print("{}/{} batches in {}".format(i, total_batch, name))
     
             distance = compute_batch_distance(z)
             distances = np.concatenate((distances, distance), axis=0)
     
-            if (i + 1) % 10 == 0:
-                print('finished: ' + str(i) + ' batches')
-    
             if i in coll_batch_inds:
                 batch_features_array = np.array(batch_features).astype(np.float32)
+                x_hat_array = np.array(x_hat).astype(np.float32)
                 coll_info = np.concatenate((
                     batch_fn_array.reshape(-1, 1),
                     batch_label_array.reshape(-1, 1),
@@ -145,16 +156,16 @@ for model_name in models[:]:
                     error.reshape(-1, 1),
                     distance.reshape(-1, 1),
                     batch_features_array.reshape(batch_size, -1),
-                    x_hat.reshape(batch_size, -1)
+                    x_hat_array.reshape(batch_size, -1)
                 ), axis=1)
                 np.savetxt(os.path.join(directory,
                                         "collected_info-[fn,lb,id,err,dist,eeg,recon]-{}.csv".format(
                                             i)), np.array(coll_info), fmt="%s",
                            delimiter=",")
-                print("Saved {}".format(os.path.join(directory,
-                                                        "collected_info-[fn,lb,id,err,dist,eeg,recon]-{}.csv".format(
-                                                            i))))
-                gc.collect()
+                # print("Saved {}".format(os.path.join(directory,
+                #                                         "collected_info-[fn,lb,id,err,dist,eeg,recon]-{}.csv".format(
+                #                                             i))))
+        gc.collect()
         
         np.save(os.path.join(directory, 'errors.npy'), errors)
         # np.save(directory+'/probilities.npy', probilities)
@@ -164,9 +175,9 @@ for model_name in models[:]:
         np.savetxt(os.path.join(directory, 'batch_samples_infomation.csv'), concat_info, delimiter=",", fmt="%s")
     
     if not precomputed:
-        compute_distros(train_set, os.path.join(output_directory, 'train_data'), total_train_batches, num2collect=total_train_batches//10)
-        compute_distros(valid_set, os.path.join(output_directory, 'valid_data'), total_valid_batches, num2collect=total_train_batches//10)
-        compute_distros(epg_set, os.path.join(output_directory, 'epg_data'), total_epg_batches, num2collect=total_train_batches//20)
+        compute_distros(valid_set, os.path.join(output_directory, 'valid_data'), total_valid_batches, num2collect=total_valid_batches//10, name="valid")
+        compute_distros(epg_set, os.path.join(output_directory, 'epg_data'), total_epg_batches, num2collect=total_epg_batches//10, name="epg")
+        compute_distros(train_set, os.path.join(output_directory, 'train_data'), total_train_batches, num2collect=total_train_batches//10, name="train")
 
     ####################################################################
 
@@ -191,8 +202,8 @@ for model_name in models[:]:
     sns.distplot(v_errors, kde=False, norm_hist=True, label='valid errors')
     plt.yscale('log')
     plt.legend()
-    plt.savefig(os.path.join(output_directory, 'errors.png'))
-    plt.savefig(os.path.join(output_directory, 'errors.pdf'), format="pdf")
+    plt.savefig(os.path.join(output_directory, 'errors-{}.png'.format(animal)))
+    plt.savefig(os.path.join(output_directory, 'errors-{}.pdf'.format(animal)), format="pdf")
     plt.close()
 
     # fig = plt.figure(figsize=(10,10))
@@ -208,15 +219,15 @@ for model_name in models[:]:
     sns.distplot(t_distances, kde=False, norm_hist=True, label='train distances')
     sns.distplot(v_distances, kde=False, norm_hist=True, label='valid distances')
     plt.legend()
-    plt.savefig(output_directory+'distances.png')
-    plt.savefig(output_directory+'distances.pdf', format="pdf")
+    plt.savefig(output_directory+'distances-{}.png'.format(animal))
+    plt.savefig(output_directory+'distances-{}.pdf'.format(animal), format="pdf")
     plt.close()
 
     # reshaped_t_errors = np.reshape(t_errors, (int(t_errors.shape[0]/2560),2560))
     # whole_segment_t_errors = np.mean(reshaped_t_errors, axis = 1)
     whole_segment_t_errors = t_errors
     del t_errors
-    np.save(output_directory+'train_data'+'/whole_segment_t_errors.npy', whole_segment_t_errors)
+    np.save(os.path.join(output_directory, 'train_data', 'whole_segment_t_errors.npy'), whole_segment_t_errors)
     # whole_segment_t_errors = np.load(output_directory+'train_data'+'/whole_segment_t_errors.npy')
     moving_average = pd.Series(whole_segment_t_errors).rolling(3600*12).mean()
     moving_std = pd.Series(whole_segment_t_errors).rolling(3600*12).std()
@@ -230,8 +241,8 @@ for model_name in models[:]:
     ticks = np.arange(0,whole_segment_t_errors.shape[0], 3600*24)
     plt.xticks(ticks, np.arange(0,len(ticks), 1))
     plt.legend()
-    plt.savefig(output_directory+'t_whole_segment_errors.png')
-    plt.savefig(output_directory+'t_whole_segment_errors.pdf', format="pdf")
+    plt.savefig(os.path.join(output_directory, 't_whole_segment_errors-{}.png'.format(animal)))
+    plt.savefig(os.path.join(output_directory, 't_whole_segment_errors-{}.pdf'.format(animal)), format="pdf")
     plt.close()
 
     th90 = np.percentile(whole_segment_t_errors, 90)
@@ -242,7 +253,7 @@ for model_name in models[:]:
     # whole_segment_v_errors = np.mean(reshaped_v_errors, axis = 1)
     whole_segment_v_errors = v_errors
     del v_errors
-    np.save(output_directory+'valid_data'+'/whole_segment_v_errors.npy', whole_segment_v_errors)
+    np.save(os.path.join(output_directory, 'valid_data', 'whole_segment_v_errors.npy'), whole_segment_v_errors)
     # whole_segment_v_errors = np.load(output_directory+'valid_data'+'/whole_segment_v_errors.npy')
     moving_average = pd.Series(whole_segment_v_errors).rolling(3600*12).mean()
     moving_std = pd.Series(whole_segment_v_errors).rolling(3600*12).std()
@@ -257,15 +268,15 @@ for model_name in models[:]:
     ticks = np.arange(0,whole_segment_v_errors.shape[0], 3600*24)
     plt.xticks(ticks, np.arange(0,len(ticks), 1))
     plt.legend()
-    plt.savefig(output_directory+'v_whole_segment_errors.png')
-    plt.savefig(output_directory+'v_whole_segment_errors.pdf', format="pdf")
+    plt.savefig(os.path.join(output_directory, 'v_whole_segment_errors-{}.png').format(animal))
+    plt.savefig(os.path.join(output_directory, 'v_whole_segment_errors-{}.pdf'.format(animal)), format="pdf")
     plt.close()
 
     # reshaped_e_errors = np.reshape(e_errors, (int(e_errors.shape[0]/2560),2560))
     # whole_segment_e_errors = np.mean(reshaped_e_errors, axis = 1)
     whole_segment_e_errors = e_errors
     del e_errors
-    np.save(output_directory+'epg_data'+'/whole_segment_e_errors.npy', whole_segment_e_errors)
+    np.save(os.path.join(output_directory, 'epg_data','whole_segment_e_errors.npy'), whole_segment_e_errors)
     # whole_segment_e_errors = np.load(output_directory+'epg_data'+'/whole_segment_e_errors.npy')
     moving_average = pd.Series(whole_segment_e_errors).rolling(3600*12).mean()
     moving_std = pd.Series(whole_segment_e_errors).rolling(3600*12).std()
@@ -280,8 +291,8 @@ for model_name in models[:]:
     ticks = np.arange(0,whole_segment_e_errors.shape[0], 3600*24)
     plt.xticks(ticks, np.arange(0,len(ticks), 1)) 
     plt.legend()
-    plt.savefig(output_directory+'e_whole_segment_errors.png')
-    plt.savefig(output_directory+'e_whole_segment_errors.pdf', format="pdf")
+    plt.savefig(os.path.join(output_directory, 'e_whole_segment_errors-{}.png'.format(animal)))
+    plt.savefig(os.path.join(output_directory, 'e_whole_segment_errors-{}.pdf'.format(animal)), format="pdf")
     plt.close()
 
     fig = plt.figure(figsize=(10,10))
@@ -289,7 +300,8 @@ for model_name in models[:]:
     sns.distplot(whole_segment_t_errors, kde=False, norm_hist=True, label='train errors')
     sns.distplot(whole_segment_v_errors, kde=False, norm_hist=True, label='valid errors')
     plt.legend()
-    plt.savefig(output_directory+'whole_segment_errors.png')
+    plt.savefig(os.path.join(output_directory,'whole_segment_errors-{}.png'.format(animal)))
+    plt.savefig(os.path.join(output_directory,'whole_segment_errors-{}.pdf'.format(animal)), format="pdf")
     plt.close()
 
     th_whole_segment_t_errors = np.copy(whole_segment_t_errors)
@@ -302,8 +314,8 @@ for model_name in models[:]:
     plt.ylabel('Reconstruction error')
     ticks = np.arange(0,th_whole_segment_t_errors.shape[0], 3600*24)
     plt.xticks(ticks, np.arange(0,len(ticks), 1)) 
-    plt.savefig(output_directory+'th_t_whole_segment_errors.png')
-    plt.savefig(output_directory+'th_t_whole_segment_errors.pdf', format="pdf")
+    plt.savefig(os.path.join(output_directory,'th_t_whole_segment_errors-{}.png'.format(animal)))
+    plt.savefig(os.path.join(output_directory,'th_t_whole_segment_errors-{}.pdf'.format(animal)), format="pdf")
     plt.close()
 
     th_whole_segment_v_errors = np.copy(whole_segment_v_errors)
@@ -316,8 +328,8 @@ for model_name in models[:]:
     plt.ylabel('Reconstruction error')
     ticks = np.arange(0,whole_segment_v_errors.shape[0], 3600*24)
     plt.xticks(ticks, np.arange(0,len(ticks), 1)) 
-    plt.savefig(output_directory+'th_v_whole_segment_errors.png')
-    plt.savefig(output_directory+'th_v_whole_segment_errors.pdf', format="pdf")
+    plt.savefig(os.path.join(output_directory,'th_v_whole_segment_errors-{}.png'.format(animal)))
+    plt.savefig(os.path.join(output_directory,'th_v_whole_segment_errors-{}.pdf'.format(animal)), format="pdf")
     plt.close()
 
     th_whole_segment_e_errors = np.copy(whole_segment_e_errors)
@@ -330,8 +342,8 @@ for model_name in models[:]:
     plt.ylabel('Reconstruction error')
     ticks = np.arange(0,whole_segment_e_errors.shape[0], 3600*24)
     plt.xticks(ticks, np.arange(0,len(ticks), 1)) 
-    plt.savefig(output_directory+'th_e_whole_segment_errors.png')
-    plt.savefig(output_directory+'th_e_whole_segment_errors.pdf', format="pdf")
+    plt.savefig(os.path.join(output_directory,'th_e_whole_segment_errors-{}.png'.format(animal)))
+    plt.savefig(os.path.join(output_directory,'th_e_whole_segment_errors-{}.pdf'.format(animal)), format="pdf")
     plt.close()
 
     th90_d = np.percentile(t_distances, 90)
@@ -350,8 +362,8 @@ for model_name in models[:]:
     ticks = np.arange(0,t_distances.shape[0], 3600*24)
     plt.xticks(ticks, np.arange(0,len(ticks), 1))
     plt.legend()
-    plt.savefig(output_directory+'t_distances.png')
-    plt.savefig(output_directory+'t_distances.pdf', format="pdf")
+    plt.savefig(os.path.join(output_directory,'t_distances-{}.png'.format(animal)))
+    plt.savefig(os.path.join(output_directory,'t_distances-{}.pdf'.format(animal)), format="pdf")
     plt.close()
 
     moving_average = pd.Series(v_distances).rolling(3600*12).mean()
@@ -367,8 +379,8 @@ for model_name in models[:]:
     ticks = np.arange(0,v_distances.shape[0], 3600*24)
     plt.xticks(ticks, np.arange(0,len(ticks), 1))
     plt.legend()
-    plt.savefig(output_directory+'v_distances.png')
-    plt.savefig(output_directory+'v_distances.pdf', format="pdf")
+    plt.savefig(os.path.join(output_directory,'v_distances-{}.png'.format(animal)))
+    plt.savefig(os.path.join(output_directory,'v_distances-{}.pdf'.format(animal)), format="pdf")
     plt.close()
 
     moving_average = pd.Series(e_distances).rolling(3600*12).mean()
@@ -384,8 +396,8 @@ for model_name in models[:]:
     ticks = np.arange(0,e_distances.shape[0], 3600*24)
     plt.xticks(ticks, np.arange(0,len(ticks), 1)) 
     plt.legend()
-    plt.savefig(output_directory+'e_distances.png')
-    plt.savefig(output_directory+'e_distances.pdf', format="pdf")
+    plt.savefig(os.path.join(output_directory,'e_distances-{}.png'.format(animal)))
+    plt.savefig(os.path.join(output_directory,'e_distances-{}.pdf'.format(animal)), format="pdf")
     plt.close()
 
 
@@ -416,8 +428,8 @@ for model_name in models[:]:
         plt.ylabel('#suprathrehold segments per '+str(window_in_minutes)+' minutes')
         ticks = np.arange(0,frequency_t.shape[0], (3600)*24)
         plt.xticks(ticks, np.arange(0,len(ticks), 1)) 
-        plt.savefig(output_directory+'frequency_t_'+str(window_in_minutes)+' minutes_no.png')
-        plt.savefig(output_directory+'frequency_t_'+str(window_in_minutes)+' minutes_no.pdf', format="pdf")
+        plt.savefig(os.path.join(output_directory,'frequency_t_'+str(window_in_minutes)+' minutes_no-{}.png'.format(animal)))
+        plt.savefig(os.path.join(output_directory,'frequency_t_'+str(window_in_minutes)+' minutes_no-{}.pdf'.format(animal)), format="pdf")
         plt.close()
 
         th99_frequency = np.nanpercentile(frequency_t, 99)
@@ -435,8 +447,8 @@ for model_name in models[:]:
         plt.ylabel('#suprathrehold segments per '+str(window_in_minutes)+' minutes')
         ticks = np.arange(0,frequency_v.shape[0], (3600)*24)
         plt.xticks(ticks, np.arange(0,len(ticks), 1)) 
-        plt.savefig(output_directory+'frequency_v_'+str(window_in_minutes)+' minutes_no.png')
-        plt.savefig(output_directory+'frequency_v_'+str(window_in_minutes)+' minutes_no.pdf', format="pdf")
+        plt.savefig(os.path.join(output_directory,'frequency_v_'+str(window_in_minutes)+' minutes_no-{}.png'.format(animal)))
+        plt.savefig(os.path.join(output_directory,'frequency_v_'+str(window_in_minutes)+' minutes_no-{}.pdf'.format(animal)), format="pdf")
         plt.close()
 
         # r = np.reshape(th_whole_segment_e_errors[:len(th_whole_segment_e_errors)//window*window], (-1, window))
@@ -452,8 +464,8 @@ for model_name in models[:]:
         plt.ylabel('#suprathrehold segments per'+str(window_in_minutes)+' minutes')
         ticks = np.arange(0,frequency_e.shape[0], (3600)*24)
         plt.xticks(ticks, np.arange(0,len(ticks), 1)) 
-        plt.savefig(output_directory+'frequency_e_'+str(window_in_minutes)+' minutes_no.png')
-        plt.savefig(output_directory+'frequency_e_'+str(window_in_minutes)+' minutes_no.pdf', format="pdf")
+        plt.savefig(os.path.join(output_directory,'frequency_e_'+str(window_in_minutes)+' minutes_no-{}.png'.format(animal)))
+        plt.savefig(os.path.join(output_directory,'frequency_e_'+str(window_in_minutes)+' minutes_no-{}.pdf'.format(animal)), format="pdf")
         plt.close()
 
     #############################################################################

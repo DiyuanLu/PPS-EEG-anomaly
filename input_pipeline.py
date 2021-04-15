@@ -242,7 +242,7 @@ def csv_reader_dataset(filepaths, n_readers=5,
     return dataset.prefetch(2)
 
 
-def v2_create_dataset(filenames, batch_size=32, shuffle=True,
+def v2_create_dataset(filenames, batch_size=32, shuffle=True, repeat=True,
                       n_sec_per_sample=1, sr=512):
     def decode_csv(line):
         # Map function to decode the .csv file in TextLineDataset
@@ -307,10 +307,14 @@ def v2_create_dataset(filenames, batch_size=32, shuffle=True,
         lambda x, lb, fn, rat_id: flat_map_reshaped(x, lb, fn, rat_id))
     
     if shuffle:
-        dataset = dataset.shuffle(10000).batch(batch_size,
-                                               drop_remainder=True).repeat()
+        dataset = dataset.shuffle(10000).batch(batch_size, drop_remainder=True)
     else:
-        dataset = dataset.batch(batch_size, drop_remainder=True).repeat()
+        dataset = dataset.batch(batch_size, drop_remainder=True)
+    if repeat:
+        dataset = dataset.repeat()
+
+        
+        
     
     return dataset.prefetch(2)
 

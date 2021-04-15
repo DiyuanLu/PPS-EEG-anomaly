@@ -10,6 +10,20 @@ from sklearn.manifold import TSNE
 # tf.enable_eager_execution()
 
 
+def set_gpu_memory_growth():
+    gpus = tf.config.experimental.list_physical_devices('GPU')
+    if gpus:
+        try:
+            # Currently, memory growth needs to be the same across GPUs
+            for gpu in gpus:
+                tf.config.experimental.set_memory_growth(gpu, True)
+            logical_gpus = tf.config.experimental.list_logical_devices('GPU')
+            print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
+        except RuntimeError as e:
+            # Memory growth must be set before GPUs have been initialized
+            print(e)
+            
+            
 def plot_errors(errors, path, err='reconstruction'):
     fig = plt.figure(figsize=(15,10))
     plt.plot(errors)
