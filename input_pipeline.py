@@ -244,7 +244,7 @@ def csv_reader_dataset(filepaths, n_readers=5,
 
 def v2_create_dataset(filenames, batch_size=32, shuffle=True, repeat=True,
                       n_sec_per_sample=1, sr=512):
-    def decode_csv(line):
+    def decode_csv(line, rat_id="1227"):
         # Map function to decode the .csv file in TextLineDataset
         # @param line object in TextLineDataset
         # @return: zipped Dataset, (features, (label, filename, rat_id))
@@ -263,8 +263,8 @@ def v2_create_dataset(filenames, batch_size=32, shuffle=True, repeat=True,
         label = tf.cast(csv_row[1], tf.int32)  # given the label
         features = tf.stack(csv_row[2:])
         
-        # why do we need the rat_id as a number?
-        rat_id = tf.cast(tf.strings.substr(filename, 1, 2), tf.string)
+        # in this way, we can't really get the rat_id?
+        rat_id = tf.cast(rat_id, tf.string)
         # rat_id = tf.strings.to_number(tf.strings.substr(filename, 1, 2), out_type=tf.dtypes.int32)
         # Apply the zscore transformation
         mean = tf.reduce_mean(features)
@@ -299,6 +299,14 @@ def v2_create_dataset(filenames, batch_size=32, shuffle=True, repeat=True,
     dataset = dataset.interleave(lambda fn:
                                  tf.data.TextLineDataset(fn).map(decode_csv))
     # zscore, label, filename, rat_id
+    # rat_ids = []
+    # for id, num in zip(file_ids, num_rows):
+    #     rat_ids += [id] * np.int(num)
+    # ds_rat_ids = tf.compat.v1.data.Dataset.from_tensor_slices(
+    #     (rat_ids))  # up to now, each row is one element in the dataset
+    #
+    # comb_ds = tf.compat.v1.data.Dataset.zip((dataset, ds_rat_ids))
+    
     dataset = dataset.map(
         map_func=lambda x, lb, fn, rat_id: reshape_to_k_sec(x, lb, fn, rat_id,
                                                             n_sec=n_sec_per_sample,
