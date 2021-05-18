@@ -20,27 +20,27 @@ batch_size: 128
 LOO_animals:
   - "1227"
   - "1275"  # comment the rest on laptop
-#  - "1237"
-#  - "1270"
-#  - "1276"
-#  - "32140"
-#  - "32141"
+  - "1237"
+  - "1270"
+  - "1276"
+  - "32140"
+  - "32141"
 
-n_pps2use: 20  #2  #
+n_pps2use: 50  #2  #
 n_ctrl2use: 100  # 100,
 train_percentage: 0.9
 pps_animals:
 - '1227'
 - '1275'  # comment the rest on laptop
-#- '1237'
-#- '1270'
-#- '1276'
-#- '32140'
-#- '32141'
+- '1237'
+- '1270'
+- '1276'
+- '32140'
+- '32141'
 ctrl_animals:
 - '3263'
 - '3267'  # comment the rest on laptop
-#- '3266'
+- '3266'
 file_pattern: "new.csv"
 if_include_ctrl: True  # whether to include ctrl animals
 
@@ -57,8 +57,8 @@ encoder_mode: "MLP"
 decoder_mode: "MLP"
 model:
   MLP:
-    enc_units: [400, 256, 128]
-    dec_units: [128, 256, 400]
+    enc_units: [512, 256, 128]
+    dec_units: [128, 256, 512]
   CNN_wo_dilation:
     enc_cnn_filters: [16, 32, 64, 128, 256]
     dec_cnn_filters: []

@@ -129,7 +129,6 @@ def get_data_files_LOO(data_path, args, train_valid_split=True,
     files_list, train_file_list, valid_file_list = [], [], []
     for animal in animals:
         animal_path = os.path.join(data_path, animal, animal)
-        
         if current_folder == "ctrl":  # Get BL + EPG
             files_of_this_animal = sorted(
                 [os.path.join(animal_path, 'BL', f) for f in

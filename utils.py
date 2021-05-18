@@ -217,7 +217,7 @@ def get_dirs_with_platform(platform):
         "FIAS": {
             "pps_data_path": "/home/epilepsy-data/data/PPS-rats-from-Sebastian/PPS-Rats",
             "ctrl_data_path": "/home/epilepsy-data/data/PPS-rats-from-Sebastian/Control-Rats",
-            "root_logdir": "/home/epilepsy-data/data/PPS-rats-from-Sebastian/resultsl-7rats"
+            "root_logdir": "/home/epilepsy-data/data/PPS-rats-from-Sebastian/results-7rats"
         },
         "Farahat": {
             "pps_data_path": '/home/farahat/Documents/data',
