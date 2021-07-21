@@ -115,14 +115,14 @@ def get_data_files_LOO(data_path, args, train_valid_split=True,
     """
    
     assert LOO_ID is not None, "You have to put in the LOO animal ID" # if LOO_ID is not None
-    if current_folder == "pps" and not if_LOO_ctrl:  #leave out pps
+    if current_folder.lower() == "pps" and not if_LOO_ctrl:  #leave out pps
         animals = args.pps_animals
         animals.remove(LOO_ID)  # Leave out one animal
-    elif current_folder == "pps" and if_LOO_ctrl:  # get all pps data, only BL
+    elif current_folder.lower() == "pps" and if_LOO_ctrl:  # get all pps data, only BL
         animals = args.pps_animals
-    elif current_folder == "ctrl" and not if_LOO_ctrl:  #then get all data BL + EPG
+    elif current_folder.lower() == "ctrl" and not if_LOO_ctrl:  #then get all data BL + EPG
         animals = args.ctrl_animals
-    elif current_folder == "ctrl" and not if_LOO_ctrl:   # then leave one animal, get BL + EPG
+    elif current_folder.lower() == "ctrl" and if_LOO_ctrl:   # then leave one animal, get BL + EPG
         animals = args.ctrl_animals
         animals.remove(LOO_ID)
         
@@ -268,7 +268,7 @@ def v2_create_dataset(filenames, batch_size=32, shuffle=True,
         features = tf.stack(csv_row[2:])
         
         # why do we need the rat_id as a number?
-        rat_id = tf.cast(tf.strings.substr(filename, 1, 2), tf.string)
+        rat_id = tf.cast(tf.strings.split(filename, sep="-")[0], tf.string)
         # rat_id = tf.strings.to_number(tf.strings.substr(filename, 1, 2), out_type=tf.dtypes.int32)
         # Apply the zscore transformation
         mean = tf.reduce_mean(features)
@@ -297,6 +297,7 @@ def v2_create_dataset(filenames, batch_size=32, shuffle=True,
         return tf.data.Dataset.zip((feature, label, filename, rat_id))
     
     #########################################################################
+    # create dataset
     dataset = tf.data.Dataset.list_files(filenames)
     
     # Apply the transformation method to all lines
@@ -314,8 +315,19 @@ def v2_create_dataset(filenames, batch_size=32, shuffle=True,
     else:
         dataset = dataset.batch(batch_size, drop_remainder=True).repeat()
     
+    
+    
     return dataset.prefetch(2)
 
+
+def get_total_batches_from_files(filenames, batch_size=128):
+    # get the number of training samples
+    num_sec = 0
+    for fn in filenames:
+        num_rows = np.int(os.path.basename(fn).split("-")[-2])
+        num_sec += num_rows * 5
+    tot_batches = np.int(num_sec / batch_size)
+    return tot_batches
 
 # def v2_create_dataset(filenames, batch_size=32, shuffle=True,
 #                       n_sec_per_sample=1, sr=512):

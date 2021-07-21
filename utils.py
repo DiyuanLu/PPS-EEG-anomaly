@@ -29,7 +29,7 @@ def plot_errors(errors, path, err='reconstruction'):
     plt.savefig(path)
     plt.close()
 
-def plot_dict_loss(d, run_logdir):
+def plot_dict_loss(d, run_logdir, epoch=0):
     fig = plt.figure(figsize=(30,20))
     # fig.subplots_adjust(hspace=0.4, wspace=0.2)
     for i, key in enumerate([x for x in list(d.keys()) if not x.startswith('v_')]):
@@ -41,8 +41,9 @@ def plot_dict_loss(d, run_logdir):
         # if max(d[key] + d['v_'+key]) > 1:
         #     ax.set_ylim([0, 1])
         ax.legend()
-    plt.savefig(run_logdir+'/losses.png')
-    plt.savefig(run_logdir+"/losses.pdf", format="pdf")
+    plt.savefig(run_logdir+'/losses-ep{}.png'.format(epoch))
+    plt.savefig(run_logdir+"/losses-ep{}.pdf".format(epoch), format="pdf")
+    plt.close()
 
 def plot_loss(history, run_logdir):
     loss = history.history['loss']
@@ -89,17 +90,22 @@ def predict_validation_samples(model, valid_set, no_samples=6):
     
     random_dataset = tf.data.experimental.sample_from_datasets([valid_set])
 
-    original_data = []
-    reconstructions = []
+    original_data = np.empty((0, model.args.input_size))
+    reconstructions = np.empty((0, model.args.input_size))
 
     for item in random_dataset.take(no_samples):
         # reconstruction = model.predict(tf.expand_dims(item[0][0], axis=0))[0,:,0]
         # original_data.append(tf.expand_dims(item[0][0], axis=0)[0,:,0].numpy())
         # pdb.set_trace()
-        reconstruction = model.predict(tf.expand_dims(item[0], axis=0))
-        original_data.append(item[0].numpy())
-        reconstructions.append(reconstruction[0].numpy())
-    
+
+        batch_features, batch_label, \
+        batch_fn, batch_rat_id = [item[i] for i in range(len(item))]
+        
+        reconstruction = model.predict(tf.expand_dims(batch_features, axis=-1))
+
+        original_data = np.vstack((original_data, batch_features.numpy().reshape(len(batch_features), -1)))
+        reconstructions = np.vstack((reconstructions, reconstruction.numpy().reshape(len(reconstruction), -1)))
+        
     return original_data, reconstructions
 
 def sample_data(model, z_dim, run_logdir, norm_params, std, epoch, no_samples=10):
@@ -123,10 +129,10 @@ def sample_data(model, z_dim, run_logdir, norm_params, std, epoch, no_samples=10
     plt.close('all')
 
 
-def plot_samples(original_data, reconstructions, run_logdir, epoch):
+def plot_samples(original_data, reconstructions, args, epoch, postfix="somenotes"):
     row, col = 8, 4
     fig, axes = plt.subplots(row, col, sharex=True, figsize=(15,10))
-    for i in range(row*col):
+    for i in range(min(row*col, len(original_data))):
         axes[i // col, np.mod(i, col)].plot(original_data[i], c='red', label='original',  linewidth=2)
         axes[i // col, np.mod(i, col)].plot(reconstructions[i], c='black', label='reconstructed',  linewidth=2)
         if np.mod(i, col) > 0:
@@ -135,9 +141,28 @@ def plot_samples(original_data, reconstructions, run_logdir, epoch):
     plt.tight_layout()
     plt.subplots_adjust(top=0.90, hspace=0.01, wspace=0.01)
     plt.legend(loc='upper right', shadow=True)
-    plt.savefig(run_logdir+'/valid_samples_plot_'+str(epoch)+'.png')
-    plt.savefig(run_logdir+'/valid_samples_plot_'+str(epoch)+'.pdf', format="pdf")
+    plt.savefig(args.run_logdir+'/valid_samples_plot_{}_{}.png'.format(epoch, postfix), transparent=True)
+    plt.savefig(args.run_logdir+'/valid_samples_plot_{}_{}.pdf'.format(epoch, postfix), transparent=True, format="pdf")
     plt.close('all')
+
+
+def plot_samples_based_on_RE(original_data, reconstructions, args, epoch):
+    """
+    based on the reconstruction errors, get quantiles, plot one figure for each quantile
+    :param original_data:
+    :param reconstructions:
+    :param REs:
+    :param args:
+    :param epoch:
+    :return:
+    """
+    REs = np.square(np.subtract(original_data, reconstructions)).mean(axis=1)
+    sort_inds = np.argsort(REs)
+    num_per_quant = len(REs) // 10
+    for qt in range(10):
+        qt_inds = sort_inds[qt*num_per_quant:(qt+1)*num_per_quant]
+        np.random.shuffle(qt_inds)
+        plot_samples(original_data[qt_inds], reconstructions[qt_inds], args, epoch, postfix="quantile-{}-{}".format(qt*10, (qt+1)*10))
 
 
 def save_results(history, model, valid_set, note, run_logdir, no_samples=6):
@@ -146,7 +171,7 @@ def save_results(history, model, valid_set, note, run_logdir, no_samples=6):
 
     model.save(run_logdir+'/the_model.h5')
 
-    original_data, reconstructions = predict_validation_samples(model, valid_set, no_samples=no_samples)
+    original_data, reconstructions, ReconError = predict_validation_samples(model, valid_set, no_samples=no_samples)
 
     plot_samples(original_data, reconstructions, run_logdir, 0)
 
@@ -196,6 +221,23 @@ class Struct:
             yaml.dump(self.__dict__, outfile, default_flow_style=False)
 
 
+class StreamDuplicator:
+    def __init__(self, oldstdout, filename):
+        self.oldstdout = oldstdout
+        self.file = open(filename, "w")
+
+    def write(self, x):
+        self.oldstdout.write(x)
+        self.file.write(x)
+
+    def flush(self):
+        self.oldstdout.flush()
+        self.file.flush()
+
+    def close(self):
+        self.oldstdout.close()
+        self.file.close()
+
 def load_parameters(filename):
     with open(filename) as f:
         ym_dicts = yaml.load(f, Loader=yaml.FullLoader)
@@ -209,15 +251,17 @@ def get_dirs_with_platform(platform):
     :param platform:
     :return:
     """
-    paths_platforms = {"laptop": {
+    paths_platforms = {"Lu": {
         "pps_data_path": "C:/Users/LDY/Desktop/EPG/EPG_data/data/3d/PPS",
         "ctrl_data_path": "C:/Users/LDY/Desktop/EPG/EPG_data/data/3d/control",
-        "root_logdir": "C:/Users/LDY/Desktop/EPG/EPG_data/results"
+        "root_logdir": "C:/Users/LDY/Desktop/EPG/EPG_data/results",
+        "src_dir": "C:/Users/LDY/Desktop/EPG/PPS-EEG-anomaly"
     },
         "FIAS": {
             "pps_data_path": "/home/epilepsy-data/data/PPS-rats-from-Sebastian/PPS-Rats",
             "ctrl_data_path": "/home/epilepsy-data/data/PPS-rats-from-Sebastian/Control-Rats",
-            "root_logdir": "/home/epilepsy-data/data/PPS-rats-from-Sebastian/results-7rats"
+            "root_logdir": "/home/epilepsy-data/data/PPS-rats-from-Sebastian/results-7rats",
+            "src_dir": "/home/elu/LU/2_Neural_Network/2_NN_projects_codes/Epilepsy/PPS-EEG-anomaly"
         },
         "Farahat": {
             "pps_data_path": '/home/farahat/Documents/data',
@@ -229,32 +273,9 @@ def get_dirs_with_platform(platform):
     pps_data_path = paths_platforms[platform]["pps_data_path"]
     ctrl_data_path = paths_platforms[platform]["ctrl_data_path"]
     root_logdir = paths_platforms[platform]["root_logdir"]
+    src_dir = paths_platforms[platform]["src_dir"]
     
-    return pps_data_path, ctrl_data_path, root_logdir
-
-
-
-def copy_save_all_files(args):
-    """
-    Copy and save all files related to model directory
-    :param args:
-    :return:
-    """
-    src_dir = '.'
-    save_dir = os.path.join(args.run_logdir, 'src')
-    if not os.path.exists(save_dir):  # if subfolder doesn't exist, should make the directory and then save file.
-        os.makedirs(save_dir)
-    req_extentions = ['py', 'yaml', "sh"]
-    for filename in os.listdir(src_dir):
-        exten = filename.split('.')[-1]
-        if exten in req_extentions:
-            src_file_name = os.path.join(src_dir, filename)
-            target_file_name = os.path.join(save_dir, filename)
-            with open(src_file_name, 'r') as file_src:
-                with open(target_file_name, 'w') as file_dst:
-                    for line in file_src:
-                        file_dst.write(line)
-    print('Done WithCopy File!')
+    return pps_data_path, ctrl_data_path, root_logdir, src_dir
 
 
 def get_timestamp_from_file(fn, year_ind=1):
@@ -272,3 +293,28 @@ def get_timestamp_from_file(fn, year_ind=1):
     min = np.int(fn.split("-")[year_ind+3])
     timestamp = datetime(year, mon, day, hour, min).timestamp()
     return timestamp
+
+
+def copy_save_all_files(args):
+    """
+    Copy and save all files related to model directory
+    :param args:
+    :return:
+    """
+    # src_dir = '../../src'
+    import shutil
+    
+    save_dir = os.path.join(args.run_logdir, 'model', 'src')
+    if not os.path.exists(
+            save_dir):  # if subfolder doesn't exist, should make the directory and then save file.
+        os.makedirs(save_dir)
+    
+    for item in os.listdir(args.src_dir):
+        s = os.path.join(args.src_dir, item)
+        d = os.path.join(save_dir, item)
+        if os.path.isdir(s):
+            shutil.copytree(s, d,
+                            ignore=shutil.ignore_patterns('*.pyc', 'tmp*', "*.h"))
+        else:
+            shutil.copy2(s, d)
+    print('Done WithCopy File!')

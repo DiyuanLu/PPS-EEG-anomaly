@@ -3,9 +3,9 @@ import time
 import gc
 from tqdm import tqdm
 import pdb
+import pickle
 import numpy as np
-from utils import predict_validation_samples, plot_samples, plot_latent_space, sample_data
-
+from utils import predict_validation_samples, plot_samples, plot_latent_space, sample_data, plot_dict_loss, plot_samples_based_on_RE
 
 class AAE(tf.keras.Model):
     
@@ -16,12 +16,13 @@ class AAE(tf.keras.Model):
         self.h_dim = args.h_dim
         self.z_dim = args.z_dim
         self.kernel_size = 5
+        self.args = args
         
 
         self.es_delta = 0.001
         self.es_patience = 5
 
-        self.run_logdir = args.run_logdir
+        self.run_logdir = self.args.run_logdir
         self.n_critic_iterations = 1
         self.cross_entropy = tf.keras.losses.BinaryCrossentropy(from_logits=True)
         self.mse = tf.keras.losses.MeanSquaredError()
@@ -56,7 +57,7 @@ class AAE(tf.keras.Model):
         self.dc_loss_weight = 1.0
         
         
-        if args.encoder_mode == "MLP":
+        if self.args.encoder_mode == "MLP":
             self.encoder = self.make_MLP_encoder(args)
             self.decoder = self.make_MLP_decoder(args)
         else:
@@ -365,7 +366,6 @@ class AAE(tf.keras.Model):
 
             decoder_output = self.decoder(encoder_output, training=True)
             ae_loss = self.autoencoder_loss(batch_features, decoder_output, self.ae_loss_weight)
-
             dc_z_fake = self.discriminator_z(encoder_output, training=True)[0]
             gen_z_loss = self.generator_loss(dc_z_fake, self.gen_z_loss_weight)
 
@@ -469,14 +469,14 @@ class AAE(tf.keras.Model):
 
         return ae_loss, dc_z_loss, dc_z_acc, dc_x_loss, dc_x_acc, gen_z_loss, gen_x_loss, dc_z_loss_real, dc_z_loss_fake, dc_x_loss_real, dc_x_loss_fake
 
-    def train(self, n_epochs, train_set, valid_set):
+    def train(self, args, train_set, valid_set):
         metrics = {key:[] for key in ["ae_losses", "dc_z_losses", "dc_z_accs", "gen_z_losses", \
             "dc_x_losses", "dc_x_accs", "gen_x_losses", "dc_z_losses_real", "dc_z_losses_fake", "dc_x_losses_real", "dc_x_losses_fake" ]}
 
         wait = 0
         best = np.Inf
-
-        for epoch in range(n_epochs):
+        
+        for epoch in range(args.n_epochs):
             start = time.time()
             epoch_ae_loss_avg = tf.compat.v2.metrics.Mean(name='Reconst loss')
             epoch_dc_x_loss_avg = tf.compat.v2.metrics.Mean(name='Disc loss_x')
@@ -486,9 +486,11 @@ class AAE(tf.keras.Model):
             epoch_gen_z_loss_avg = tf.compat.v2.metrics.Mean(name='Gen loss_z')
             epoch_dc_z_loss_avg = tf.compat.v2.metrics.Mean(name='Disc loss_z')
 
-            for batch, batch_x in enumerate(train_set):
+            for batch, batch_x in enumerate(train_set.take(args.tot_train_batches)):  #otherwise it repeat infinitively
 
-                ae_loss, dc_z_loss, dc_z_acc, dc_x_loss, dc_x_acc, gen_z_loss, gen_x_loss, dc_z_loss_real, dc_z_loss_fake, dc_x_loss_real, dc_x_loss_fake = self.train_step(batch_x)
+                ae_loss, dc_z_loss, dc_z_acc, dc_x_loss, \
+                dc_x_acc, gen_z_loss, gen_x_loss, dc_z_loss_real, \
+                dc_z_loss_fake, dc_x_loss_real, dc_x_loss_fake = self.train_step(batch_x)
 
                 metrics['ae_losses'].append(ae_loss)
                 metrics['dc_z_losses'].append(dc_z_loss)
@@ -511,36 +513,53 @@ class AAE(tf.keras.Model):
                 epoch_gen_x_loss_avg(gen_x_loss)
                 
                 if batch%50== 0:
-                    self.print_status_bar(batch, False,  [epoch_ae_loss_avg, epoch_dc_z_loss_avg,
+                    self.print_status_bar("EP:{} BT {}/{}".format(epoch, batch, args.tot_train_batches), False,  [epoch_ae_loss_avg, epoch_dc_z_loss_avg,
                                                         epoch_dc_z_acc_avg, epoch_dc_x_loss_avg, epoch_dc_x_acc_avg, epoch_gen_z_loss_avg, epoch_gen_x_loss_avg ])
-
+                    
+            # check and save model
+            current = epoch_ae_loss_avg.result()
+            if current + self.es_delta < best:
+                best = current
+                wait = 0
+    
+                print("Save metrics")
+                with open(self.args.run_logdir + '/metrics_bt_{}.pickle'.format(
+                        args.tot_train_batches), 'wb') as handle:
+                    pickle.dump(metrics, handle)
+                plot_dict_loss(metrics, self.args.run_logdir, epoch=epoch)
+    
+                print("Save model")
+                self.save()
+            else:
+                wait += 1
+                if wait >= self.es_patience:
+                    return metrics
+                
             epoch_time = time.time() - start
             self.print_status_bar('Epoch :' + str(epoch+1)+' Time: '+str(round(epoch_time)), True,  [epoch_ae_loss_avg, epoch_dc_z_loss_avg,
                                                     epoch_dc_z_acc_avg, epoch_dc_x_loss_avg, epoch_dc_x_acc_avg, epoch_gen_z_loss_avg, epoch_gen_x_loss_avg ])
 
             if (epoch+1) % 1 == 0:
                 original_data, reconstructions = predict_validation_samples(self, valid_set, no_samples=50)
-                plot_samples(original_data, reconstructions, self.run_logdir, epoch+1)
+                # plot_samples(original_data, reconstructions, ReconErrors, self.args, epoch+1)
+                plot_samples_based_on_RE(original_data, reconstructions,
+                                         args, epoch)
         
             if (epoch+1) % 1 == 0:
                 sample_data(self.decoder, self.z_dim, self.run_logdir, self.norm_params, self.std, epoch+1, no_samples=50)
 
             # if (epoch+1) % 1 == 0:
-            #     plot_latent_space(self.encoder, valid_set, self.run_logdir, epoch+1)     
-
-            current = epoch_ae_loss_avg.result()
-            if current + self.es_delta < best:
-                best = current
-                wait = 0
-                self.save()
-            else:
-                wait +=1
-                if wait >= self.es_patience:
-                    return metrics
+            #     plot_latent_space(self.encoder, valid_set, self.run_logdir, epoch+1)
+           
             
             gc.collect()
 
-            
+        print("Save metrics")
+        with open(self.args.run_logdir + '/metrics_bt_{}.pickle'.format(args.tot_train_batches),
+                  'wb') as handle:
+            pickle.dump(metrics, handle)
+        plot_dict_loss(metrics, self.args.run_logdir, epoch=epoch)
+        
         return metrics
     
     def clear_model(self):

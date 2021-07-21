@@ -34,8 +34,9 @@ def scan_animals_with_pretrained_model(args):
 
     run_logdir = os.path.join(args.root_logdir, os.path.basename(args.model_dir))
     output_directory = run_logdir +  '/stats_{}/'.format(animal)
-    if not os.path.exists(output_directory):
-        os.mkdir(output_directory)
+
+    if not os.path.exists(output_directory):  # if subfolder doesn't exist, should make the directory and then save file.
+        os.makedirs(output_directory)
 
     if args.LOO:
         epg_files = get_data_files_from_folder(animal_path + '/EPG/',
@@ -43,11 +44,11 @@ def scan_animals_with_pretrained_model(args):
         valid_files = get_data_files_from_folder(animal_path + '/BL/',
                                                  train_valid_split=False)
         # train_files = get_all_data_files(data_path, animal, train_valid_split=False)
-        trained_files_filename = \
-        [i for i in os.listdir(run_logdir) if 'picked_train' in i][0]
-        with open(run_logdir + '/' + trained_files_filename) as f:
-            train_files = f.readlines()
-            train_files = [i.strip() for i in train_files]
+        # trained_files_filename = \
+        # [i for i in os.listdir(run_logdir) if 'picked_train' in i][0]
+        # with open(run_logdir + '/' + trained_files_filename) as f:
+        #     train_files = f.readlines()
+        #     train_files = [i.strip() for i in train_files]
     else:
         epg_files = get_data_files_from_folder(animal_path + '/EPG/',
                                                train_valid_split=False)

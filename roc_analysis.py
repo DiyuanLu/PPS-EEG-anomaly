@@ -7,8 +7,8 @@ import itertools
 import os
 import scipy
 import math
-import seaborn as sns
-sns.set(style="whitegrid")
+# import seaborn as sns
+# sns.set(style="whitegrid")
 import pandas as pd
 from sklearn import metrics
 

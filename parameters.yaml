@@ -1,10 +1,11 @@
 # TODO: These will be changed when submitting to cluster
-platform: laptop #"FIAS"  #
+platform: "FIAS"  #"Lu" #
 if_to_cluster: False
 LOO_animal: "1227"
 ctrl_data_path: C:/Users/LDY/Desktop/EPG/EPG_data/data/3d/control
 pps_data_path: C:/Users/LDY/Desktop/EPG/EPG_data/data/3d/PPS
 root_logdir: C:/Users/LDY/Desktop/EPG/EPG_data/results
+src_dir: C:/Users/LDY/Desktop/EPG/PPS-EEG-anomaly
 run_logdir: C:/Users/LDY/Desktop/EPG/EPG_data/results/run_dim_16_EPG_anomaly_2021-01-31T14-16-53_pps2h_ctrl3h_LOO_1275
 
 # training parameters
@@ -15,7 +16,7 @@ sampling_rate: 512
 input_size: 512
 h_dim: 512
 z_dim: 128
-n_epochs: 5
+n_epochs: 100
 batch_size: 128
 LOO_animals:
   - "1227"
@@ -25,6 +26,9 @@ LOO_animals:
   - "1276"
   - "32140"
   - "32141"
+  - '3263'
+  - '3267'
+  - '3266'
 
 n_pps2use: 50  #2  #
 n_ctrl2use: 100  # 100,
@@ -53,8 +57,8 @@ gen_z_loss_weight: 1.0
 gen_x_loss_weight: 0.0
 dc_loss_weight: 1.0
 
-encoder_mode: "MLP"
-decoder_mode: "MLP"
+encoder_mode: "CNN"
+decoder_mode: "CNN"
 model:
   MLP:
     enc_units: [512, 256, 128]
