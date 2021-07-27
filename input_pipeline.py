@@ -306,6 +306,7 @@ def v2_create_dataset(filenames, batch_size=32, shuffle=True,
                                         tf.data.TextLineDataset(fn).map(decode_csv))
     else:
         # dataset = tf.data.TextLineDataset(filename).map(decode_csv)
+        
         dataset = dataset.flat_map(
             lambda fname: tf.data.TextLineDataset(fname).map(decode_csv))
 
