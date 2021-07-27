@@ -1,5 +1,5 @@
 # TODO: These will be changed when submitting to cluster
-platform: "FIAS"  #"Lu" #
+platform: "Lu" #"FIAS"  #
 if_to_cluster: False
 LOO_animal: "1227"
 ctrl_data_path: C:/Users/LDY/Desktop/EPG/EPG_data/data/3d/control

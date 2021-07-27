@@ -301,8 +301,14 @@ def v2_create_dataset(filenames, batch_size=32, shuffle=True,
     dataset = tf.data.Dataset.list_files(filenames)
     
     # Apply the transformation method to all lines
-    dataset = dataset.interleave(lambda fn:
-                                    tf.data.TextLineDataset(fn).map(decode_csv))
+    if shuffle:
+        dataset = dataset.interleave(lambda fn:
+                                        tf.data.TextLineDataset(fn).map(decode_csv))
+    else:
+        # dataset = tf.data.TextLineDataset(filename).map(decode_csv)
+        dataset = dataset.flat_map(
+            lambda fname: tf.data.TextLineDataset(fname).map(decode_csv))
+
     # zscore, label, filename, rat_id
     dataset = dataset.map(
         map_func=lambda x, lb, fn, rat_id: reshape_to_k_sec(x, lb, fn, rat_id,
