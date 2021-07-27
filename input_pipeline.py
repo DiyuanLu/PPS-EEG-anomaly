@@ -313,7 +313,7 @@ def v2_create_dataset(filenames, batch_size=32, shuffle=True,
     if shuffle:
         dataset = dataset.shuffle(10000).batch(batch_size, drop_remainder=True).repeat()
     else:
-        dataset = dataset.batch(batch_size, drop_remainder=True).repeat()
+        dataset = dataset.batch(batch_size, drop_remainder=True)
     
     
     

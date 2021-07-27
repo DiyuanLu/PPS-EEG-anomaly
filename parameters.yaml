@@ -10,7 +10,7 @@ run_logdir: C:/Users/LDY/Desktop/EPG/EPG_data/results/run_dim_16_EPG_anomaly_202
 
 # training parameters
 LOO: True  # False
-if_scanning: False   # TODO: True when testing
+if_scanning: True   # TODO: True when testing
 n_sec_per_sample: 1
 sampling_rate: 512
 input_size: 512

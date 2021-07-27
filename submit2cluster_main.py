@@ -47,9 +47,9 @@ if __name__ == "__main__":
 	
 	pps_data_path, ctrl_data_path, root_logdir, src_dir = get_dirs_with_platform(platform)
 	if platform == "FIAS":
-		if_to_cluster = True#  False  #
+		args.if_to_cluster = True #  False  #
 	else:
-		if_to_cluster = False  #
+		args.if_to_cluster = False  #True #
 	
 	args.platform = platform
 	args.pps_data_path = pps_data_path
@@ -63,46 +63,68 @@ if __name__ == "__main__":
 		args.ctrl_animals = ['3263', '3267'] # comment the rest on laptop
 	
 	# want to make each LOO training/scanning testing as one job
-	if if_to_cluster:
-		args.if_to_cluster = True
-		if not args.if_scanning:  # this case is pure training
-			for LOO_animal in args.LOO_animals:
-				# create yaml file in src folder, later save it to each individual logdir
-				# create output dir
-				# please change platform in parameters.yaml file every time you change the running platform
-				run_logdir = get_run_logdir(root_logdir, LOO_animal, args)
-				
-				args.run_logdir = run_logdir
-				args.LOO_animal = LOO_animal
-				
-				# Generate new yaml file for train_aae.py, only changed LOO_animal
-				yaml_filename = os.path.join(args.run_logdir, "{}_parameters.yaml".format(LOO_animal))
-				args.save_yaml(yaml_filename)
-				
+	if not args.if_scanning:  # this case is pure training
+		for LOO_animal in args.LOO_animals:
+			# create yaml file in src folder, later save it to each individual logdir
+			# create output dir
+			# please change platform in parameters.yaml file every time you change the running platform
+			run_logdir = get_run_logdir(root_logdir, LOO_animal, args)
+			
+			args.run_logdir = run_logdir
+			args.LOO_animal = LOO_animal
+			
+			# Generate new yaml file for train_aae.py, only changed LOO_animal
+			yaml_filename = os.path.join(args.run_logdir, "{}_parameters.yaml".format(LOO_animal))
+			args.save_yaml(yaml_filename)
+			
+			if args.if_to_cluster:
 				ClusterQueue(LOO_animal, run_logdir, 10000, yaml_filename)
-		else:  # this is for scanning
-			# list of the pretrained models
-			models = [
-				"/home/epilepsy-data/data/PPS-rats-from-Sebastian/results-7rats/2021-04-29T17-16-16-anomaly_BL_w_ctrl-VAE_MLP-LOO-all-rats/2021-04-27T17-16-16-anomaly_BL_w_ctrl-VAE_MLP-LOO-1227-dim_128-50h-train-1227",
-			]
-			LOO_animals = [os.path.basename(dd).split("_")[-1] for dd in models]
+			else:
+				print(
+					"1. run this script to generate yaml file. 2. give the dir of the yaml file to the argument of train_aee.py")
 
-			for LOO_animal, model_dir in zip(LOO_animals, models):
-				args.LOO_animal = LOO_animal
-				args.model_dir = model_dir
-				args.LOO_animal = LOO_animal
+	else:  # this is for scanning
+		# list of the pretrained models
+		models = [
+			# r"C:\Users\LDY\Desktop\1-all-experiment-results\PPS-anomaly-detection\2021.07.21\from_me\run_dim_128_loss_weights_EPG_anomaly_2021-07-21T00-27-53_pps50h_ctrl100h_LOO_1227",
+			"/home/epilepsy-data/data/PPS-rats-from-Sebastian/amr_logs/final_128_0.1/run_EPG_anomaly_2021_03_10-12_56_LOO_16_1275",
+			"/home/epilepsy-data/data/PPS-rats-from-Sebastian/amr_logs/final_128_0.1/run_EPG_anomaly_2021_03_10-12_57_LOO_22_32140",
+			"/home/epilepsy-data/data/PPS-rats-from-Sebastian/amr_logs/final_128_0.1/run_EPG_anomaly_2021_03_10-12_57_LOO_53_3263",
+			# "/home/epilepsy-data/data/PPS-rats-from-Sebastian/amr_logs/final_128_0.1/run_EPG_anomaly_2021_03_10-13_11_LOO_33_1227",
+			# "/home/epilepsy-data/data/PPS-rats-from-Sebastian/amr_logs/final_128_0.1/run_EPG_anomaly_2021_03_10-22_45_LOO_02_3266",
+			# "/home/epilepsy-data/data/PPS-rats-from-Sebastian/amr_logs/final_128_0.1/run_EPG_anomaly_2021_03_11-00_12_LOO_23_1276",
+			# "/home/epilepsy-data/data/PPS-rats-from-Sebastian/amr_logs/final_128_0.1/run_EPG_anomaly_2021_03_11-01_45_LOO_00_1237",
+			# "/home/epilepsy-data/data/PPS-rats-from-Sebastian/amr_logs/final_128_0.1/run_EPG_anomaly_2021_03_11-02_08_LOO_25_32141",
+			# "/home/epilepsy-data/data/PPS-rats-from-Sebastian/amr_logs/final_128_0.1/run_EPG_anomaly_2021_03_11-10_20_LOO_09_3267",
+			# "/home/epilepsy-data/data/PPS-rats-from-Sebastian/amr_logs/final_128_0.1/run_EPG_anomaly_2021_03_12-16_42_LOO_18_1270",
+		]
+		LOO_animals = [os.path.basename(dd).split("_")[-1] for dd in models]
 
-				# Generate new yaml file for train_aae.py, only changed LOO_animal
-				yaml_filename = os.path.join(model_dir,
-				                             "{}_scanning_parameters.yaml".format(
-					                             LOO_animal))
-				args.save_yaml(yaml_filename)
-				
-				ClusterQueue("scan"+args.LOO_animal, model_dir, 12000, yaml_filename)
+		for LOO_animal, model_dir in zip(LOO_animals, models):
+			args.LOO_animal = LOO_animal
+			args.model_dir = model_dir
+			args.run_logdir = os.path.join(args.root_logdir, os.path.basename(model_dir)+"-scanning")
+			if not os.path.exists(args.run_logdir):
+				os.makedirs(args.run_logdir)
+
+			# Generate new yaml file for train_aae.py, only changed LOO_animal
+			yaml_filename = os.path.join(args.run_logdir,
+			                             "{}_scanning_parameters.yaml".format(
+				                             LOO_animal))
+			args.save_yaml(yaml_filename)
+			
+			if args.if_to_cluster:
+				ClusterQueue("scan"+args.LOO_animal, args.run_logdir, 12000, yaml_filename)
+			else:
+				print("1. run this script to generate yaml file. 2. give the dir of the yaml file to the argument of train_aee.py")
 			
 	#
-	# # Want to use for loop in the train_aae.py
+	# # #
+	# # # # Want to use for loop in the train_aae.py
 	# else:
+	#
+	# """
+	# """
 	# 	for LOO_animal in args.LOO_animals:
 	# 		# create yaml file in src folder, later save it to each individual logdir
 	# 		# create output dir
