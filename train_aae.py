@@ -35,7 +35,7 @@ if not args.if_to_cluster:
         args.ctrl_animals = ['3263', '3267'] # comment the rest on laptop
 
 # save all files to experiemnt run_logdir
-copy_save_all_files(args)
+# copy_save_all_files(args)
 
 
 if not args.if_scanning:

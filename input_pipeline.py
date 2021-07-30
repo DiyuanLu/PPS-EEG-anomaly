@@ -246,6 +246,128 @@ def csv_reader_dataset(filepaths, n_readers=5,
     return dataset.prefetch(2)
 
 
+def csv_reader_dataset3(filepaths, n_readers=5,
+                       n_read_threads=None, shuffle_buffer_size=10000,
+                       n_parse_threads=tf.data.experimental.AUTOTUNE,
+                       batch_size=32, shuffle=True, n_sec_per_sample=1,
+                       sr=512):
+    def read2(line):
+        n_inputs = 2561
+        defs = [tf.constant([], dtype=tf.string)] + [0.] * n_inputs
+        fields = tf.io.decode_csv(line, record_defaults=defs) # exclude filename and label
+
+        filename = tf.cast(fields[0], tf.string)
+        label = tf.cast(fields[1], tf.int32)  # given the label
+        features = tf.stack(fields[2:])
+        
+        x = (features - tf.reduce_mean(features)) / (
+                tf.math.reduce_std(features) + np.finfo(np.float32).eps)
+        x = tf.expand_dims(x, 1)
+        return x, label, filename
+    
+
+    def read_files(filename, rat_id):
+        decode_ds = tf.data.TextLineDataset(filename).map(lambda line: read2(line), num_parallel_calls=n_parse_threads)
+        # decode_ds = decode_ds.map(lambda feature: decode_label_fn(feature, assign_label=label, assign_fn=filename))
+        # decode_ds = decode_ds.map(
+        #     lambda ft, lb, fn: add_rat_id(ft, lb, fn, assign_id=rat_id))
+    
+        # decode_ds = decode_ds.map(lambda fn, lb, feat: decode_mod_label(fn, lb, feat, assign_label=label))
+        # decode_ds = decode_ds.apply(tf.contrib.data.batch_and_drop_remainder(args.secs_per_samp*args.num_segs))
+        # decode_ds = decode_ds.batch(args.secs_per_samp * args.num_segs)
+    
+        # if args.if_spectrum:
+        #     decode_ds = decode_ds.map(lambda feature, label, fn:
+        #                               get_spectrum(feature, label, fn, args=args))
+        # else:
+        #     decode_ds = decode_ds.map(scale_to_zscore)  # zscore norm the data
+        #
+        return decode_ds
+
+    def parse_function(filename, rat):
+        """
+        parse the file. It does following things:
+        1. init a TextLineDataset to read line in the files
+        2. decode each line and group args.secs_per_samp*args.num_segs rows together as one sample
+        3. repeat the label for each long chunk
+        4. return the transformed dataset
+        :param filename: str, file name
+        :param label: int, label of the file
+        :param num_rows: int, the number of rows in the file (since they are artifacts free)
+        :param args: Param object, contains hyperparams
+        :return: transformed dataset with the label of the file assigned to each batch of data from the file
+        """
+        decode_ds = tf.data.TextLineDataset(filename).map(
+            lambda line: read2(line))
+        # decode_ds = decode_ds.map(lambda feature: decode_label_fn(feature, assign_label=label, assign_fn=filename))
+        decode_ds = decode_ds.map(
+            lambda ft, lb, fn: add_rat_id(ft, lb, fn, assign_id=rat))
+
+        return decode_ds
+
+    def add_rat_id(features, label, filename, assign_id="1227"):
+        """
+        :param features:
+        :param label:
+        :param fn:
+        :return:
+        """
+    
+        return features, label, filename, assign_id
+        
+    # reshape the sample to 1 second
+    def reshape_to_k_sec(feature,label,filename,rat_id, n_sec=1, sr=512):
+        # feature, label, filename, rat_id = feature_label_filename_id[0], feature_label_filename_id[1], feature_label_filename_id[2], feature_label_filename_id[3]
+        filename = tf.cast(tf.repeat(filename, repeats=5 // n_sec, axis=0),
+                           dtype=tf.string)
+        feature = tf.reshape(feature[:(5 // n_sec) * n_sec * sr], (
+                5 // n_sec, n_sec * sr, 1))
+        label = tf.repeat(label, repeats=5 // n_sec, axis=0)
+        rat_id = tf.cast(tf.repeat(rat_id, repeats=5 // n_sec, axis=0),
+                         dtype=tf.string)
+        return feature, label, filename, rat_id # flexible to the number of sec per sample
+
+
+    n_row_per_file = 720
+    rat_ids = [os.path.basename(os.path.dirname(os.path.dirname(fn))) for fn in filepaths]
+    num_rows = [np.int(os.path.basename(fn).split("-")[-2]) for fn in filepaths]
+    dataset = tf.data.Dataset.from_tensor_slices((filepaths, rat_ids))
+    shuffle_buffer_size = min(len(filepaths) * n_row_per_file, 10000)
+    
+    # TODO: doESn't work: because flat_map return dataset object, while map only apply function to the element of the dataset. That's why it was a nest_dataset with dataset = dataset.map(map_func=lambda fn, rat: read_files(fn, rat))
+    # dataset = dataset.map(map_func=lambda fn, rat: read_files(fn, rat))
+    dataset = dataset.flat_map(
+        lambda fname, rat: parse_function(fname, rat))
+
+    # if shuffle:
+    #     dataset = dataset.interleave(
+    #         lambda filepath, rat_id: tf.data.TextLineDataset(filepath).skip(1),
+    #         # why skip 1?
+    #         cycle_length=n_readers,
+    #         num_parallel_calls=n_read_threads)
+    #     dataset = dataset.shuffle(shuffle_buffer_size)
+    # else:
+    #     dataset = tf.data.TextLineDataset(dataset)
+    # dataset = dataset.map(map_func=lambda x: read2(x),
+    #                       num_parallel_calls=n_parse_threads)
+    
+    # TODO: somehow the order is changed
+    # rat_ids = []
+    # for id, num in zip(file_ids, num_rows):
+    #     rat_ids += [id] * np.int(num)
+    # ds_rat_ids = tf.compat.v1.data.Dataset.from_tensor_slices((rat_ids))
+    # dataset = tf.data.Dataset.zip((dataset, ds_rat_ids))
+
+    dataset = dataset.map(
+        lambda x, lb, fn, id: reshape_to_k_sec(x, lb, fn, id,
+                                               n_sec=n_sec_per_sample,
+                                               sr=sr))#, num_parallel_calls=n_parse_threads
+    dataset = dataset.flat_map(
+        lambda x, lb, fn, id: tf.data.Dataset.from_tensor_slices(
+            (x, lb, fn, id)))
+    dataset = dataset.batch(batch_size, drop_remainder=True)
+    return dataset.prefetch(2)
+
 def v2_create_dataset(filenames, batch_size=32, shuffle=True,
                       n_sec_per_sample=1, sr=512):
     def decode_csv(line):
@@ -290,9 +412,9 @@ def v2_create_dataset(filenames, batch_size=32, shuffle=True,
         return reshaped_x, label, filename, rat_id
 
     def flat_map_reshaped(feature, label, filename, rat_id):
-        filename = tf.data.Dataset.from_tensor_slices(filename)
         label = tf.data.Dataset.from_tensor_slices(label)
         feature = tf.data.Dataset.from_tensor_slices(feature)
+        filename = tf.data.Dataset.from_tensor_slices(filename)
         rat_id = tf.data.Dataset.from_tensor_slices(rat_id)
         return tf.data.Dataset.zip((feature, label, filename, rat_id))
     
@@ -303,28 +425,22 @@ def v2_create_dataset(filenames, batch_size=32, shuffle=True,
     # Apply the transformation method to all lines
     if shuffle:
         dataset = dataset.interleave(lambda fn:
-                                        tf.data.TextLineDataset(fn).map(decode_csv))
+                                        tf.data.TextLineDataset(fn), cycle_length=8, num_parallel_calls=8)
+        dataset = dataset.shuffle(10000).repeat()
     else:
-        # dataset = tf.data.TextLineDataset(filename).map(decode_csv)
-        
-        dataset = dataset.flat_map(
-            lambda fname: tf.data.TextLineDataset(fname).map(decode_csv))
+        dataset = tf.data.TextLineDataset(dataset)
 
     # zscore, label, filename, rat_id
+    dataset = dataset.map(decode_csv)
     dataset = dataset.map(
         map_func=lambda x, lb, fn, rat_id: reshape_to_k_sec(x, lb, fn, rat_id,
                                                     n_sec=n_sec_per_sample,
                                                     sr=sr))
     dataset = dataset.flat_map(lambda x, lb, fn, rat_id: flat_map_reshaped(x, lb, fn, rat_id))
+
+    dataset = dataset.batch(batch_size, drop_remainder=True)
     
-    if shuffle:
-        dataset = dataset.shuffle(10000).batch(batch_size, drop_remainder=True).repeat()
-    else:
-        dataset = dataset.batch(batch_size, drop_remainder=True)
-    
-    
-    
-    return dataset.prefetch(2)
+    return dataset.prefetch(1)
 
 
 def get_total_batches_from_files(filenames, batch_size=128):

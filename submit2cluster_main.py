@@ -86,17 +86,17 @@ if __name__ == "__main__":
 	else:  # this is for scanning
 		# list of the pretrained models
 		models = [
-			r"C:\Users\LDY\Desktop\1-all-experiment-results\PPS-anomaly-detection\2021.07.21\from_me\run_dim_128_loss_weights_EPG_anomaly_2021-07-21T00-27-53_pps50h_ctrl100h_LOO_1227",
-			# "/home/epilepsy-data/data/PPS-rats-from-Sebastian/amr_logs/final_128_0.1/run_EPG_anomaly_2021_03_10-12_56_LOO_16_1275",
-			# "/home/epilepsy-data/data/PPS-rats-from-Sebastian/amr_logs/final_128_0.1/run_EPG_anomaly_2021_03_10-12_57_LOO_22_32140",
-			# "/home/epilepsy-data/data/PPS-rats-from-Sebastian/amr_logs/final_128_0.1/run_EPG_anomaly_2021_03_10-12_57_LOO_53_3263",
-			# "/home/epilepsy-data/data/PPS-rats-from-Sebastian/amr_logs/final_128_0.1/run_EPG_anomaly_2021_03_10-13_11_LOO_33_1227",
-			# "/home/epilepsy-data/data/PPS-rats-from-Sebastian/amr_logs/final_128_0.1/run_EPG_anomaly_2021_03_10-22_45_LOO_02_3266",
-			# "/home/epilepsy-data/data/PPS-rats-from-Sebastian/amr_logs/final_128_0.1/run_EPG_anomaly_2021_03_11-00_12_LOO_23_1276",
-			# "/home/epilepsy-data/data/PPS-rats-from-Sebastian/amr_logs/final_128_0.1/run_EPG_anomaly_2021_03_11-01_45_LOO_00_1237",
-			# "/home/epilepsy-data/data/PPS-rats-from-Sebastian/amr_logs/final_128_0.1/run_EPG_anomaly_2021_03_11-02_08_LOO_25_32141",
-			# "/home/epilepsy-data/data/PPS-rats-from-Sebastian/amr_logs/final_128_0.1/run_EPG_anomaly_2021_03_11-10_20_LOO_09_3267",
-			# "/home/epilepsy-data/data/PPS-rats-from-Sebastian/amr_logs/final_128_0.1/run_EPG_anomaly_2021_03_12-16_42_LOO_18_1270",
+			# r"C:\Users\LDY\Desktop\EPG\EPG_data\results\run_EPG_anomaly_2021_03_10-13_11_LOO_33_1227-ok",
+			"/home/epilepsy-data/data/PPS-rats-from-Sebastian/amr_logs/final_128_0.1/run_EPG_anomaly_2021_03_10-12_56_LOO_16_1275",
+			"/home/epilepsy-data/data/PPS-rats-from-Sebastian/amr_logs/final_128_0.1/run_EPG_anomaly_2021_03_10-12_57_LOO_22_32140",
+			"/home/epilepsy-data/data/PPS-rats-from-Sebastian/amr_logs/final_128_0.1/run_EPG_anomaly_2021_03_10-12_57_LOO_53_3263",
+			"/home/epilepsy-data/data/PPS-rats-from-Sebastian/amr_logs/final_128_0.1/run_EPG_anomaly_2021_03_10-13_11_LOO_33_1227",
+			"/home/epilepsy-data/data/PPS-rats-from-Sebastian/amr_logs/final_128_0.1/run_EPG_anomaly_2021_03_10-22_45_LOO_02_3266",
+			"/home/epilepsy-data/data/PPS-rats-from-Sebastian/amr_logs/final_128_0.1/run_EPG_anomaly_2021_03_11-00_12_LOO_23_1276",
+			"/home/epilepsy-data/data/PPS-rats-from-Sebastian/amr_logs/final_128_0.1/run_EPG_anomaly_2021_03_11-01_45_LOO_00_1237",
+			"/home/epilepsy-data/data/PPS-rats-from-Sebastian/amr_logs/final_128_0.1/run_EPG_anomaly_2021_03_11-02_08_LOO_25_32141",
+			"/home/epilepsy-data/data/PPS-rats-from-Sebastian/amr_logs/final_128_0.1/run_EPG_anomaly_2021_03_11-10_20_LOO_09_3267",
+			"/home/epilepsy-data/data/PPS-rats-from-Sebastian/amr_logs/final_128_0.1/run_EPG_anomaly_2021_03_12-16_42_LOO_18_1270",
 		]
 		LOO_animals = [os.path.basename(dd).split("_")[-1] for dd in models]
 
